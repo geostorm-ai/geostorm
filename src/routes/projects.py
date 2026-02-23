@@ -33,7 +33,7 @@ _background_tasks: set[asyncio.Task[Any]] = set()
 @router.get("/projects")
 async def list_projects() -> list[ProjectResponse]:
     async with get_db_connection() as db:
-        cursor = await db.execute("SELECT * FROM projects ORDER BY created_at DESC")
+        cursor = await db.execute("SELECT * FROM projects WHERE deleted_at IS NULL ORDER BY created_at DESC")
         rows = await cursor.fetchall()
         return [ProjectResponse(**dict(row)) for row in rows]
 
@@ -162,6 +162,21 @@ async def update_project(project_id: str, req: UpdateProjectRequest) -> ProjectR
     if not row:
         raise HTTPException(status_code=404, detail="Project not found")
     return ProjectResponse(**dict(row))
+
+
+@router.delete("/projects/{project_id}")
+async def delete_project(project_id: str) -> Response:
+    await get_writable_project_or_403(project_id)
+
+    now = datetime.now(tz=UTC).isoformat()
+    async with get_db_connection() as db:
+        await db.execute(
+            "UPDATE projects SET deleted_at = ?, updated_at = ? WHERE id = ?",
+            (now, now, project_id),
+        )
+        await db.commit()
+
+    return Response(status_code=204)
 
 
 @router.post("/projects/{project_id}/monitor", status_code=202)

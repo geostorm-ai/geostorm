@@ -21,6 +21,9 @@ dependencies = [
 slack = [
     "slack-sdk",
 ]
+analytics = [
+    "posthog",
+]
 dev = [
     "pytest",
     "pytest-asyncio",

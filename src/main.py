@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.database import check_database_health, initialize_database
+from src.retention import cleanup_old_responses
 from src.routes.alerts import router as alerts_router
 from src.routes.projects import router as projects_router
 from src.routes.runs import router as runs_router
@@ -54,6 +55,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         scheduling_loop,
         IntervalTrigger(seconds=60),
         id="monitoring",
+    )
+    await _scheduler.add_schedule(
+        cleanup_old_responses,
+        IntervalTrigger(hours=24),
+        id="retention_cleanup",
     )
     await _scheduler.start_in_background()
     logger.info("GeoStorm started on port 8080")

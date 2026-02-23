@@ -32,7 +32,7 @@ async def scheduling_loop() -> None:
                 SELECT ps.id, ps.project_id, ps.hour_of_day, ps.days_of_week_json, ps.last_run_at
                 FROM project_schedules ps
                 JOIN projects p ON p.id = ps.project_id
-                WHERE ps.is_active = 1 AND p.is_demo = 0
+                WHERE ps.is_active = 1 AND p.is_demo = 0 AND p.deleted_at IS NULL
                 """,
             )
             schedules = await cursor.fetchall()

@@ -339,6 +339,23 @@ class PerceptionResponse(BaseModel):
     data: list[PerceptionDataPoint] = Field(default_factory=list)
 
 
+class TrajectoryDataPoint(BaseModel):
+    """Single data point in trajectory time-series."""
+
+    date: str
+    recommendation_share: float | None = None
+    position_avg: float | None = None
+    competitor_delta: float | None = None
+    trend_direction: TrendDirection = TrendDirection.STABLE
+
+
+class TrajectoryResponse(BaseModel):
+    """Historical trajectory data for a project."""
+
+    project_id: str
+    data: list[TrajectoryDataPoint] = Field(default_factory=list)
+
+
 # ============================================================================
 # Setup
 # ============================================================================

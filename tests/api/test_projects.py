@@ -354,6 +354,48 @@ async def test_delete_competitor(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_delete_project_soft_delete(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    await _init_db(db_path)
+
+    fake = _fake_db_conn(db_path)
+    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
+         patch("src.routes.deps.get_db_connection", side_effect=fake):
+        test_app = FastAPI()
+        test_app.include_router(router)
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.delete("/api/projects/proj-1")
+            assert resp.status_code == 204
+
+            # Deleted project should not appear in list
+            resp = await client.get("/api/projects")
+            assert resp.status_code == 200
+            assert len(resp.json()) == 0
+
+            # Deleted project should return 404 on detail
+            resp = await client.get("/api/projects/proj-1")
+            assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_demo_project_403(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    await _init_db(db_path)
+    await _seed_demo_project(db_path)
+
+    fake = _fake_db_conn(db_path)
+    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
+         patch("src.routes.deps.get_db_connection", side_effect=fake):
+        test_app = FastAPI()
+        test_app.include_router(router)
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.delete("/api/projects/demo-1")
+            assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_demo_write_protection(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)

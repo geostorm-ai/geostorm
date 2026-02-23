@@ -1,8 +1,9 @@
-"""Run, response, and perception endpoints for GeoStorm API."""
+"""Run, response, perception, and analytics endpoints for GeoStorm API."""
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -16,6 +17,8 @@ from src.schemas import (
     ResponseItem,
     RunDetailResponse,
     RunResponse,
+    TrajectoryDataPoint,
+    TrajectoryResponse,
 )
 
 router = APIRouter(prefix="/api")
@@ -260,6 +263,56 @@ async def get_perception(
     ]
 
     return PerceptionResponse(
+        project_id=project_id,
+        data=data,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 5) GET /api/projects/{project_id}/trajectory
+# ---------------------------------------------------------------------------
+
+
+@router.get("/projects/{project_id}/trajectory")
+async def get_trajectory(
+    project_id: str,
+    start_date: str | None = Query(default=None),
+    end_date: str | None = Query(default=None),
+    period: Literal["daily", "weekly", "monthly"] = Query(default="weekly"),
+) -> TrajectoryResponse:
+    """Historical trajectory data showing week-over-week or day-over-day changes."""
+    await get_project_or_404(project_id)
+
+    clauses = ["project_id = ?", "term_id IS NULL", "provider_name IS NULL", "period_type = ?"]
+    params: list[object] = [project_id, period]
+    if start_date:
+        clauses.append("period_start >= ?")
+        params.append(start_date)
+    if end_date:
+        clauses.append("period_end <= ?")
+        params.append(end_date)
+
+    where = " AND ".join(clauses)
+
+    async with get_db_connection() as db:
+        cursor = await db.execute(
+            f"SELECT * FROM perception_scores WHERE {where} ORDER BY period_start ASC",
+            params,
+        )
+        rows = await cursor.fetchall()
+
+    data = [
+        TrajectoryDataPoint(
+            date=row["period_start"][:10],
+            recommendation_share=row["recommendation_share"],
+            position_avg=row["position_avg"],
+            competitor_delta=row["competitor_delta"],
+            trend_direction=row["trend_direction"],
+        )
+        for row in rows
+    ]
+
+    return TrajectoryResponse(
         project_id=project_id,
         data=data,
     )
