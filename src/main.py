@@ -1,10 +1,17 @@
 """FastAPI entry point for GeoStorm."""
 
+from __future__ import annotations
+
 import logging
-from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+from apscheduler import AsyncScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -12,8 +19,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.database import check_database_health, initialize_database
+from src.scheduler import scheduling_loop
 
 logger = logging.getLogger(__name__)
+
+_scheduler: AsyncScheduler | None = None
 
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "web" / "dist" / "client"
 
@@ -29,9 +39,23 @@ class HealthResponse(BaseModel):
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Startup and shutdown lifecycle for GeoStorm."""
+    global _scheduler  # noqa: PLW0603
+
     await initialize_database()
+
+    _scheduler = AsyncScheduler()
+    await _scheduler.add_schedule(
+        scheduling_loop,
+        IntervalTrigger(seconds=60),
+        id="monitoring",
+    )
+    await _scheduler.start_in_background()
     logger.info("GeoStorm started on port 8080")
+
     yield
+
+    await _scheduler.stop()
+    _scheduler = None
     logger.info("GeoStorm shutting down")
 
 
@@ -57,10 +81,11 @@ app.add_middleware(
 async def health_check() -> HealthResponse:
     """Return service health status with a real database ping."""
     db_ok = await check_database_health()
+    scheduler_status = "running" if _scheduler is not None else "stopped"
     return HealthResponse(
-        status="ok" if db_ok else "degraded",
+        status="ok" if db_ok and _scheduler is not None else "degraded",
         database="connected" if db_ok else "unreachable",
-        scheduler="idle",
+        scheduler=scheduler_status,
     )
 
 

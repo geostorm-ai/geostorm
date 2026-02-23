@@ -11,7 +11,7 @@ dependencies = [
     "pydantic[email]",
     "aiosqlite",
     "apscheduler>=4.0.0a1",
-    "httpx",
+    "httpx>=0.27,<1",
     "aiosmtplib",
     "pydantic-ai",
     "pydantic-settings>=2.13.1",
@@ -70,7 +70,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ANN", "ARG"]
+"tests/**/*.py" = ["ANN", "ARG", "PLR2004", "PLC0415"]
 
 [tool.mypy]
 strict = true
