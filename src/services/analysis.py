@@ -6,6 +6,7 @@ import json
 import logging
 
 from src.database import get_db_connection
+from src.notifications.dispatcher import dispatch_alerts
 from src.services.change_detection import detect_and_store_alerts
 from src.services.mention_service import detect_and_store_mentions_for_response
 from src.services.scoring_service import calculate_and_store_scores
@@ -76,8 +77,16 @@ async def analyze_run(run_id: str, project_id: str) -> None:
 
     # 5. Detect changes and store alerts
     try:
-        await detect_and_store_alerts(project_id, run_id)
+        alert_ids = await detect_and_store_alerts(project_id, run_id)
     except Exception:
         logger.exception("Change detection failed for run %s", run_id)
+        alert_ids = []
+
+    # 6. Dispatch notifications for new alerts
+    if alert_ids:
+        try:
+            await dispatch_alerts(project_id, alert_ids)
+        except Exception:
+            logger.exception("Alert dispatch failed for run %s", run_id)
 
     logger.info("Analysis pipeline completed for run %s", run_id)
