@@ -1,0 +1,52 @@
+---
+const currentPath = Astro.url.pathname
+---
+
+<header class="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+	<div class="flex h-14 items-center px-4 lg:px-6">
+		<a href="/" class="flex items-center gap-2 font-semibold">
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+				<circle cx="12" cy="12" r="10" />
+				<path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+				<path d="M2 12h20" />
+			</svg>
+			<span>GeoStorm</span>
+		</a>
+		<nav class="ml-auto flex items-center gap-4">
+			<a
+				href="/settings"
+				class:list={[
+					"text-sm font-medium transition-colors hover:text-primary",
+					currentPath === "/settings" ? "text-primary" : "text-muted-foreground",
+				]}
+			>
+				Settings
+			</a>
+			<button
+				id="theme-toggle"
+				class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+				aria-label="Toggle theme"
+			>
+				<svg class="h-4 w-4 dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+				</svg>
+				<svg class="hidden h-4 w-4 dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<circle cx="12" cy="12" r="4" />
+					<path d="M12 2v2" /><path d="M12 20v2" />
+					<path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" />
+					<path d="M2 12h2" /><path d="M20 12h2" />
+					<path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
+				</svg>
+			</button>
+		</nav>
+	</div>
+</header>
+
+<script>
+	document.getElementById("theme-toggle")?.addEventListener("click", () => {
+		const html = document.documentElement
+		const isDark = html.classList.contains("dark")
+		html.classList.toggle("dark", !isDark)
+		localStorage.setItem("theme", isDark ? "light" : "dark")
+	})
+</script>

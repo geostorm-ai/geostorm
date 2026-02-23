@@ -1,0 +1,23 @@
+---
+import { SetupWizard } from "@/components/islands/SetupWizard"
+import { QueryProvider } from "@/components/providers/QueryProvider"
+import BaseLayout from "@/layouts/BaseLayout.astro"
+---
+
+<BaseLayout title="Create Project | GeoStorm">
+	<div class="min-h-screen flex flex-col">
+		<header class="border-b px-6 py-4">
+			<div class="flex items-center gap-4">
+				<a href="/projects" class="text-sm text-muted-foreground hover:text-foreground">&larr; Back to projects</a>
+				<span class="text-sm font-semibold">Create New Project</span>
+			</div>
+		</header>
+		<div class="flex-1 flex items-start justify-center p-6">
+			<div class="w-full max-w-xl">
+				<QueryProvider client:load>
+					<SetupWizard client:load />
+				</QueryProvider>
+			</div>
+		</div>
+	</div>
+</BaseLayout>

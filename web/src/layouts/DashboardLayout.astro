@@ -1,0 +1,23 @@
+---
+import NavHeader from "@/components/NavHeader.astro"
+import Sidebar from "@/components/Sidebar.astro"
+import BaseLayout from "./BaseLayout.astro"
+
+interface Props {
+	title?: string
+}
+
+const { title = "GeoStorm" } = Astro.props
+---
+
+<BaseLayout title={title}>
+	<div class="flex min-h-screen flex-col">
+		<NavHeader />
+		<div class="flex flex-1">
+			<Sidebar />
+			<main class="flex-1 overflow-y-auto">
+				<slot />
+			</main>
+		</div>
+	</div>
+</BaseLayout>

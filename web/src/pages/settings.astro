@@ -1,0 +1,14 @@
+---
+import { APIKeySettings } from "@/components/islands/APIKeySettings"
+import { QueryProvider } from "@/components/providers/QueryProvider"
+import DashboardLayout from "@/layouts/DashboardLayout.astro"
+---
+
+<DashboardLayout title="Settings | GeoStorm">
+	<div class="p-6 max-w-2xl">
+		<h1 class="text-2xl font-bold mb-6">Settings</h1>
+		<QueryProvider client:load>
+			<APIKeySettings client:load />
+		</QueryProvider>
+	</div>
+</DashboardLayout>
