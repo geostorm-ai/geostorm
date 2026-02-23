@@ -19,6 +19,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.database import check_database_health, initialize_database
+from src.routes.alerts import router as alerts_router
+from src.routes.projects import router as projects_router
+from src.routes.runs import router as runs_router
+from src.routes.schedule import router as schedule_router
+from src.routes.setup import router as setup_router
+from src.routes.terms import router as terms_router
 from src.scheduler import scheduling_loop
 
 logger = logging.getLogger(__name__)
@@ -73,8 +79,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# TODO(routes): include routers from src/routes/ when implemented
-# API routers should be included here BEFORE the static file mount and SPA catch-all below.
+app.include_router(projects_router)
+app.include_router(terms_router)
+app.include_router(schedule_router)
+app.include_router(alerts_router)
+app.include_router(runs_router)
+app.include_router(setup_router)
 
 
 @app.get("/health")

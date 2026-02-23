@@ -80,15 +80,12 @@ async def get_alert(alert_id: str) -> Alert | None:
     return _row_to_alert(row)
 
 
-async def list_alerts(
+def _build_alert_where(
     project_id: str,
-    *,
-    limit: int = 50,
-    offset: int = 0,
     severity: AlertSeverity | None = None,
     acknowledged: bool | None = None,
-) -> list[Alert]:
-    """List alerts for a project with optional filters."""
+) -> tuple[str, list[object]]:
+    """Build WHERE clause and params for alert queries."""
     clauses = ["project_id = ?"]
     params: list[object] = [project_id]
 
@@ -103,7 +100,35 @@ async def list_alerts(
         clauses.append("is_acknowledged = ?")
         params.append(1 if acknowledged else 0)
 
-    where = " AND ".join(clauses)
+    return " AND ".join(clauses), params
+
+
+async def count_alerts(
+    project_id: str,
+    *,
+    severity: AlertSeverity | None = None,
+    acknowledged: bool | None = None,
+) -> int:
+    """Count alerts for a project with optional filters."""
+    where, params = _build_alert_where(project_id, severity, acknowledged)
+    async with get_db_connection() as db:
+        cursor = await db.execute(
+            f"SELECT COUNT(*) FROM alerts WHERE {where}", params,
+        )
+        row = await cursor.fetchone()
+    return row[0] if row else 0
+
+
+async def list_alerts(
+    project_id: str,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    severity: AlertSeverity | None = None,
+    acknowledged: bool | None = None,
+) -> list[Alert]:
+    """List alerts for a project with optional filters."""
+    where, params = _build_alert_where(project_id, severity, acknowledged)
     query = f"SELECT * FROM alerts WHERE {where} ORDER BY created_at DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])
 

@@ -1,0 +1,74 @@
+"""Term endpoints for GeoStorm API."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, HTTPException, Response
+
+from src.database import get_db_connection
+from src.routes.deps import get_project_or_404, get_writable_project_or_403
+from src.schemas import CreateTermRequest, TermResponse
+
+router = APIRouter(prefix="/api")
+
+
+@router.get("/projects/{project_id}/terms")
+async def get_terms(project_id: str) -> list[TermResponse]:
+    await get_project_or_404(project_id)
+    async with get_db_connection() as db:
+        cursor = await db.execute(
+            "SELECT * FROM project_terms WHERE project_id = ? AND is_active = 1",
+            (project_id,),
+        )
+        rows = await cursor.fetchall()
+    return [
+        TermResponse(
+            id=row["id"],
+            project_id=row["project_id"],
+            name=row["name"],
+            description=row["description"],
+            is_active=bool(row["is_active"]),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+        for row in rows
+    ]
+
+
+@router.post("/projects/{project_id}/terms", status_code=201)
+async def create_term(project_id: str, body: CreateTermRequest) -> TermResponse:
+    await get_writable_project_or_403(project_id)
+    term_id = uuid.uuid4().hex
+    now = datetime.now(tz=UTC).isoformat()
+    async with get_db_connection() as db:
+        await db.execute(
+            "INSERT INTO project_terms (id, project_id, name, description, is_active, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, 1, ?, ?)",
+            (term_id, project_id, body.name, body.description, now, now),
+        )
+        await db.commit()
+    return TermResponse(
+        id=term_id,
+        project_id=project_id,
+        name=body.name,
+        description=body.description,
+        is_active=True,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+@router.delete("/projects/{project_id}/terms/{term_id}")
+async def delete_term(project_id: str, term_id: str) -> Response:
+    await get_writable_project_or_403(project_id)
+    async with get_db_connection() as db:
+        cursor = await db.execute(
+            "DELETE FROM project_terms WHERE id = ? AND project_id = ?",
+            (term_id, project_id),
+        )
+        await db.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Term not found")
+    return Response(status_code=204)
