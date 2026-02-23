@@ -8,6 +8,7 @@ from pathlib import Path
 import aiosqlite
 
 from src.config import get_settings
+from src.demo_data import seed_demo_data
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,16 @@ async def initialize_database() -> None:
         schema_sql = migration_file.read_text()
         await db.executescript(schema_sql)
 
+        # executescript resets connection state, re-enable foreign keys
+        await db.execute("PRAGMA foreign_keys = ON")
         await db.commit()
         logger.info("Database initialized at %s", db_path)
+
+        # Seed demo project on first startup if it doesn't exist
+        cursor = await db.execute("SELECT id FROM projects WHERE is_demo = 1")
+        demo_row = await cursor.fetchone()
+        if demo_row is None:
+            await seed_demo_data(db)
+            logger.info("Demo project seeded successfully")
     finally:
         await db.close()
