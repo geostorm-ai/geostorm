@@ -54,6 +54,11 @@ Open [http://localhost:8080](http://localhost:8080) -- the demo loads immediatel
 
 **That's it.** No git clone, no build step, no API keys, no database setup. A demo project with 90 days of synthetic monitoring data is ready to explore.
 
+> **Already have an OpenRouter key?** Pass it at startup and skip straight to monitoring:
+> ```bash
+> docker run -d -p 8080:8080 -e OPENROUTER_API_KEY=sk-or-v1-... --name geostorm ghcr.io/geostorm-ai/geostorm
+> ```
+
 <details>
 <summary><h3>Requirements</h3></summary>
 
