@@ -61,13 +61,6 @@ async def initialize_database() -> None:
         await db.commit()
         logger.info("Database initialized at %s", db_path)
 
-        # Fix broken Gemini model ID in existing databases
-        await db.execute(
-            "UPDATE llm_providers SET model_name = 'google/gemini-2.5-flash'"
-            " WHERE model_name = 'google/gemini-2.0-flash'",
-        )
-        await db.commit()
-
         # Seed demo project on first startup if it doesn't exist
         cursor = await db.execute("SELECT id FROM projects WHERE is_demo = 1")
         demo_row = await cursor.fetchone()

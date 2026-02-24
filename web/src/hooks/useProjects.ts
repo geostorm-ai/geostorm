@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import type {
 	CreateProjectRequest,
@@ -58,7 +59,17 @@ export function useTriggerMonitoring(projectId: string) {
 				method: "POST",
 			}),
 		onSuccess: () => {
+			toast.success("Monitoring run started", {
+				description: "Results will appear shortly.",
+			})
 			queryClient.invalidateQueries({ queryKey: ["runs", projectId] })
+			queryClient.invalidateQueries({ queryKey: ["perception"] })
+			queryClient.invalidateQueries({ queryKey: ["alerts", projectId] })
+		},
+		onError: (error) => {
+			toast.error("Monitoring failed", {
+				description: error instanceof Error ? error.message : "Unknown error",
+			})
 		},
 	})
 }

@@ -48,6 +48,12 @@ async def create_provider(project_id: str, body: CreateProviderRequest) -> LLMPr
     provider_id = uuid.uuid4().hex
     now = datetime.now(tz=UTC).isoformat()
     async with get_db_connection() as db:
+        cursor = await db.execute(
+            "SELECT id FROM llm_providers WHERE project_id = ? AND provider_name = ? AND model_name = ?",
+            (project_id, body.provider_name, body.model_name),
+        )
+        if await cursor.fetchone():
+            raise HTTPException(status_code=409, detail="Provider with this model already exists")
         await db.execute(
             "INSERT INTO llm_providers (id, project_id, provider_name, model_name, is_enabled, created_at, updated_at)"
             " VALUES (?, ?, ?, ?, 1, ?, ?)",

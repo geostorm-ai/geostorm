@@ -4,19 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePerception } from "@/hooks/usePerception"
 import { useRuns } from "@/hooks/useRuns"
-import { RUN_STATUS_COLORS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
-import type { Run } from "@/schemas/run"
+import { getRunDisplay } from "@/lib/runs"
 
 interface SignalPanelProps {
 	projectId: string
-}
-
-function getRunDisplay(run: Run) {
-	const isPartial = run.status === "completed" && run.failed_queries > 0
-	const displayStatus = isPartial ? "partial" : run.status
-	const statusColor = RUN_STATUS_COLORS[displayStatus as keyof typeof RUN_STATUS_COLORS] ?? RUN_STATUS_COLORS.pending
-	return { displayStatus, statusColor, isPartial }
 }
 
 function RunItem({ run }: { run: Run }) {

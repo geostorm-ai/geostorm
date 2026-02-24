@@ -88,8 +88,8 @@ async def create_project(req: CreateProjectRequest) -> ProjectCreatedResponse:
 
         # Default LLM providers so monitoring can run immediately
         default_providers = [
-            ("openrouter", "anthropic/claude-3.5-sonnet"),
-            ("openrouter", "openai/gpt-4o"),
+            ("openrouter", "anthropic/claude-sonnet-4.5"),
+            ("openrouter", "openai/gpt-5.2"),
             ("openrouter", "google/gemini-2.5-flash"),
         ]
         for provider_name, model_name in default_providers:

@@ -141,7 +141,11 @@ export function ProvidersManager({ projectId, isDemo }: ProvidersManagerProps) {
 									variant="ghost"
 									size="icon"
 									className="h-7 w-7"
-									onClick={() => deleteProvider.mutate(provider.id)}
+									onClick={() => {
+									if (window.confirm(`Remove ${provider.model_name}?`)) {
+										deleteProvider.mutate(provider.id)
+									}
+								}}
 									disabled={isDemo || deleteProvider.isPending}
 								>
 									<X className="h-4 w-4" />
