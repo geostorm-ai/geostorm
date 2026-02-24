@@ -81,4 +81,4 @@ The entire stack is self-contained. One container, one port, one volume mount.
 
 MIT License. See [LICENSE](LICENSE) for details.
 
-Copyright 2025 Scott Frasso.
+Copyright 2026 Scott Frasso.
