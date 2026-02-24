@@ -1,0 +1,8 @@
+---
+import { ProjectDetailPage } from "@/components/islands/ProjectDetailPage"
+import DashboardLayout from "@/layouts/DashboardLayout.astro"
+---
+
+<DashboardLayout title="Project — GeoStorm">
+	<ProjectDetailPage client:only="react" />
+</DashboardLayout>

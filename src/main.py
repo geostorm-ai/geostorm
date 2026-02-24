@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 _scheduler: AsyncScheduler | None = None
 
-_STATIC_DIR = Path(__file__).resolve().parent.parent / "web" / "dist" / "client"
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 
 class HealthResponse(BaseModel):
@@ -51,22 +51,22 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await initialize_database()
 
     _scheduler = AsyncScheduler()
-    await _scheduler.add_schedule(
-        scheduling_loop,
-        IntervalTrigger(seconds=60),
-        id="monitoring",
-    )
-    await _scheduler.add_schedule(
-        cleanup_old_responses,
-        IntervalTrigger(hours=24),
-        id="retention_cleanup",
-    )
-    await _scheduler.start_in_background()
-    logger.info("GeoStorm started on port 8080")
+    async with _scheduler:
+        await _scheduler.add_schedule(
+            scheduling_loop,
+            IntervalTrigger(seconds=60),
+            id="monitoring",
+        )
+        await _scheduler.add_schedule(
+            cleanup_old_responses,
+            IntervalTrigger(hours=24),
+            id="retention_cleanup",
+        )
+        await _scheduler.start_in_background()
+        logger.info("GeoStorm started on port 8080")
 
-    yield
+        yield
 
-    await _scheduler.stop()
     _scheduler = None
     logger.info("GeoStorm shutting down")
 
@@ -105,14 +105,25 @@ async def health_check() -> HealthResponse:
     )
 
 
-# Static assets and SPA catch-all MUST be registered after all API routes.
-if _STATIC_DIR.is_dir():
-    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+# Static assets MUST be registered after all API routes.
+_ASTRO_ASSETS = _STATIC_DIR / "_astro"
+if _ASTRO_ASSETS.is_dir():
+    app.mount("/_astro", StaticFiles(directory=str(_ASTRO_ASSETS)), name="astro_assets")
+if (_STATIC_DIR / "favicon.svg").is_file():
+    @app.get("/favicon.svg", response_model=None)
+    async def favicon_svg() -> FileResponse:
+        """Serve favicon."""
+        return FileResponse(str(_STATIC_DIR / "favicon.svg"))
+
+    @app.get("/favicon.ico", response_model=None)
+    async def favicon_ico() -> FileResponse:
+        """Serve favicon."""
+        return FileResponse(str(_STATIC_DIR / "favicon.ico"))
 
 
-@app.get("/{_full_path:path}")
+@app.get("/{_full_path:path}", response_model=None)
 async def serve_spa(_full_path: str) -> FileResponse | JSONResponse:
-    """Serve the Astro SSR index for client-side routing.
+    """Serve static Astro pages.
 
     This catch-all is intentionally registered last so it never
     shadows /health, /api/*, or /static/* routes.
@@ -122,9 +133,25 @@ async def serve_spa(_full_path: str) -> FileResponse | JSONResponse:
             content={"detail": "Not found"},
             status_code=404,
         )
+
+    import re  # noqa: PLC0415
+
+    # /projects/<uuid> → serve the detail page
+    if re.match(r"^projects/[^/]+$", _full_path) and _full_path != "projects":
+        detail_file = _STATIC_DIR / "projects" / "detail" / "index.html"
+        if detail_file.is_file():
+            return FileResponse(str(detail_file))
+
+    # Try exact path (e.g. /settings → /settings/index.html)
+    page_file = _STATIC_DIR / _full_path / "index.html"
+    if page_file.is_file():
+        return FileResponse(str(page_file))
+
+    # Try root index as fallback
     index_file = _STATIC_DIR / "index.html"
     if index_file.is_file():
         return FileResponse(str(index_file))
+
     return JSONResponse(
         content={"detail": "Frontend not built. Run pnpm build in web/."},
         status_code=404,

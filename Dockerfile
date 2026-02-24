@@ -21,7 +21,7 @@ RUN uv sync --frozen --no-dev
 # Build frontend
 COPY web/ ./web/
 WORKDIR /app/web
-RUN pnpm install --frozen-lockfile
+RUN CI=true pnpm install --frozen-lockfile
 RUN pnpm build
 WORKDIR /app
 
