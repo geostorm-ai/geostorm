@@ -58,16 +58,25 @@ async def _seed_alerts(db_path: str) -> None:
     db = await aiosqlite.connect(db_path)
     now = datetime.now(tz=UTC).isoformat()
     try:
+        cols = (
+            "id, project_id, alert_type, severity, title, message,"
+            " metadata_json, explanation, is_acknowledged,"
+            " acknowledged_at, acknowledged_by, created_at"
+        )
         alerts = [
-            ("a-1", "proj-1", "competitor_emergence", "critical", "Alert 1", "Message 1", None, None, 0, None, None, now),
-            ("a-2", "proj-1", "disappearance", "warning", "Alert 2", "Message 2", None, None, 0, None, None, now),
-            ("a-3", "proj-1", "recommendation_share_drop", "info", "Alert 3", "Message 3", None, None, 1, now, "admin", now),
-            ("a-4", "proj-1", "position_degradation", "warning", "Alert 4", "Message 4", None, None, 0, None, None, now),
-            ("a-5", "proj-1", "model_divergence", "critical", "Alert 5", "Message 5", None, None, 1, now, "user1", now),
+            ("a-1", "proj-1", "competitor_emergence", "critical",
+             "Alert 1", "Message 1", None, None, 0, None, None, now),
+            ("a-2", "proj-1", "disappearance", "warning",
+             "Alert 2", "Message 2", None, None, 0, None, None, now),
+            ("a-3", "proj-1", "recommendation_share_drop", "info",
+             "Alert 3", "Message 3", None, None, 1, now, "admin", now),
+            ("a-4", "proj-1", "position_degradation", "warning",
+             "Alert 4", "Message 4", None, None, 0, None, None, now),
+            ("a-5", "proj-1", "model_divergence", "critical",
+             "Alert 5", "Message 5", None, None, 1, now, "user1", now),
         ]
         await db.executemany(
-            "INSERT INTO alerts (id, project_id, alert_type, severity, title, message, metadata_json, explanation, is_acknowledged, acknowledged_at, acknowledged_by, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            f"INSERT INTO alerts ({cols}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             alerts,
         )
         await db.commit()
@@ -130,7 +139,7 @@ class TestListAlerts:
         with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
             alerts = await list_alerts("proj-1", severity=AlertSeverity.WARNING)
 
-        # a-1(critical), a-2(warning), a-4(warning), a-5(critical)
+        # Expect 4: two critical + two warning alerts
         assert len(alerts) == 4
         severities = {a.severity for a in alerts}
         assert AlertSeverity.INFO not in severities
