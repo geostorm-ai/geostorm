@@ -1,13 +1,8 @@
 ---
-import { ProjectsList } from "@/components/islands/ProjectsList"
-import { QueryProvider } from "@/components/providers/QueryProvider"
+import { ProjectsPage } from "@/components/islands/ProjectsPage"
 import DashboardLayout from "@/layouts/DashboardLayout.astro"
 ---
 
 <DashboardLayout title="Projects | GeoStorm">
-	<div class="p-6">
-		<QueryProvider client:load>
-			<ProjectsList client:load />
-		</QueryProvider>
-	</div>
+	<ProjectsPage client:only="react" />
 </DashboardLayout>

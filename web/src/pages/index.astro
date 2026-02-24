@@ -1,18 +1,8 @@
 ---
-import { apiFetch } from "@/lib/api"
-import type { Project } from "@/schemas/project"
-
-let projects: Project[] = []
-try {
-	projects = await apiFetch<Project[]>("/projects")
-} catch {
-	// API not available during build
-}
-
-if (projects.length > 0) {
-	const demo = projects.find((p) => p.is_demo)
-	return Astro.redirect(`/projects/${(demo ?? projects[0]).id}`)
-}
-
-return Astro.redirect("/projects")
+import { HomeRedirect } from "@/components/islands/HomeRedirect"
+import BaseLayout from "@/layouts/BaseLayout.astro"
 ---
+
+<BaseLayout title="GeoStorm">
+	<HomeRedirect client:only="react" />
+</BaseLayout>
