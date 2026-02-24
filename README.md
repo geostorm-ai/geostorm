@@ -172,6 +172,50 @@ pnpm tsc --noEmit
 
 ---
 
+## FAQ
+
+<details>
+<summary><strong>Why would I want this?</strong></summary>
+<br>
+
+More and more developers discover tools by asking AI -- "what's the best library for X?" If an AI model stops recommending your project, or starts favoring a competitor, you'd never know unless you manually checked every model. GeoStorm automates that, runs on a schedule, and alerts you when something changes.
+
+</details>
+
+<details>
+<summary><strong>Why OpenRouter?</strong></summary>
+<br>
+
+OpenRouter gives you access to GPT-4o, Claude, Gemini, Llama, and dozens of other models through a single API key. Instead of managing separate keys for OpenAI, Anthropic, and Google, you sign up once and GeoStorm can query all of them. You can also use direct provider keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) if you prefer.
+
+</details>
+
+<details>
+<summary><strong>Is there a hosted version?</strong></summary>
+<br>
+
+Not yet. GeoStorm is self-hosted only for now. The Docker container is designed to be easy to run anywhere -- your laptop, a VPS, or a cloud VM. A hosted version is on the roadmap.
+
+</details>
+
+<details>
+<summary><strong>Why SQLite?</strong></summary>
+<br>
+
+GeoStorm is a single-user monitoring tool, not a multi-tenant SaaS. SQLite keeps things simple -- no database server to run, no connection strings to configure, no separate container. Your data lives in a single file on a mounted volume. For the query patterns GeoStorm uses, SQLite is more than fast enough.
+
+</details>
+
+<details>
+<summary><strong>How much does it cost to run?</strong></summary>
+<br>
+
+GeoStorm itself is free. The only cost is the AI API usage through OpenRouter. A typical monitoring run queries 3 models with a few prompts each -- roughly $0.01-0.05 per run depending on the models you choose. Running daily, that's about $1-2/month.
+
+</details>
+
+---
+
 <div align="center">
 
 ### Ready to see what AI thinks about your software?
