@@ -22,6 +22,7 @@ from src.database import check_database_health, initialize_database
 from src.retention import cleanup_old_responses
 from src.routes.alerts import router as alerts_router
 from src.routes.projects import router as projects_router
+from src.routes.providers import router as providers_router
 from src.routes.runs import router as runs_router
 from src.routes.schedule import router as schedule_router
 from src.routes.setup import router as setup_router
@@ -91,6 +92,7 @@ app.include_router(schedule_router)
 app.include_router(alerts_router)
 app.include_router(runs_router)
 app.include_router(setup_router)
+app.include_router(providers_router)
 
 
 @app.get("/health")

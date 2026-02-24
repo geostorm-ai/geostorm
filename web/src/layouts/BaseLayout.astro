@@ -1,4 +1,6 @@
 ---
+import { Toaster } from "@/components/ui/sonner"
+
 interface Props {
 	title?: string
 }
@@ -24,6 +26,7 @@ const { title = "GeoStorm" } = Astro.props
 	</head>
 	<body class="min-h-screen bg-background text-foreground antialiased">
 		<slot />
+		<Toaster client:load />
 	</body>
 </html>
 

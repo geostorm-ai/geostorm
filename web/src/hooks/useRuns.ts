@@ -5,7 +5,7 @@ import type { PaginatedResponse } from "@/schemas/shared"
 
 export function useRuns(
 	projectId: string,
-	options?: { limit?: number; offset?: number; status?: string },
+	options?: { limit?: number; offset?: number; status?: string; enablePolling?: boolean },
 ) {
 	const params = new URLSearchParams()
 	if (options?.limit) params.set("limit", String(options.limit))
@@ -19,6 +19,15 @@ export function useRuns(
 				`/projects/${projectId}/runs${qs ? `?${qs}` : ""}`,
 			),
 		enabled: !!projectId,
+		refetchInterval: options?.enablePolling
+			? (query) => {
+					const data = query.state.data as PaginatedResponse<Run> | undefined
+					if (data?.items.some((run) => run.status === "running" || run.status === "pending")) {
+						return 3000
+					}
+					return false
+				}
+			: undefined,
 	})
 }
 

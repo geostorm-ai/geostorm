@@ -1,5 +1,6 @@
+.playwright-mcp/
 .shotgun/
-
+qa-screenshots/
 # Python
 __pycache__/
 *.py[cod]

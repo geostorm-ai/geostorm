@@ -65,6 +65,9 @@ class ProjectResponse(BaseModel):
     is_demo: bool = False
     created_at: datetime
     updated_at: datetime
+    latest_score: float | None = None
+    run_count: int = 0
+    active_alert_count: int = 0
 
 
 class BrandResponse(BaseModel):
@@ -315,6 +318,37 @@ class AlertConfigResponse(BaseModel):
     is_enabled: bool = True
     created_at: datetime
     updated_at: datetime
+
+
+# ============================================================================
+# LLM Provider
+# ============================================================================
+
+
+class LLMProviderResponse(BaseModel):
+    """LLM provider detail."""
+
+    id: str
+    project_id: str
+    provider_name: str
+    model_name: str
+    is_enabled: bool = True
+    created_at: datetime
+    updated_at: datetime
+
+
+class CreateProviderRequest(BaseModel):
+    """Request to create an LLM provider."""
+
+    provider_name: str = Field(..., min_length=1, max_length=255)
+    model_name: str = Field(..., min_length=1, max_length=255)
+
+
+class UpdateProviderRequest(BaseModel):
+    """Request to update an LLM provider."""
+
+    is_enabled: bool | None = None
+    model_name: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 # ============================================================================

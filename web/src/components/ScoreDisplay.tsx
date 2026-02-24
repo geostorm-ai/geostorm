@@ -38,6 +38,9 @@ export function ScoreDisplay({
 				</span>
 				{trend && <TrendIndicator direction={trend} />}
 			</div>
+			{(value === null || (format === "percent" && value === 0)) && (
+				<span className="text-xs text-muted-foreground">Not enough data yet</span>
+			)}
 		</div>
 	)
 }

@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePerception } from "@/hooks/usePerception"
 import { useRuns } from "@/hooks/useRuns"
-import { RUN_STATUS_COLORS } from "@/lib/constants"
 import { cn } from "@/lib/utils"
+import { getRunDisplay } from "@/lib/runs"
 import type { Run } from "@/schemas/run"
 
 interface SignalPanelProps {
@@ -13,13 +13,13 @@ interface SignalPanelProps {
 }
 
 function RunItem({ run }: { run: Run }) {
-	const statusColor = RUN_STATUS_COLORS[run.status] ?? RUN_STATUS_COLORS.pending
+	const { displayStatus, statusColor, isPartial } = getRunDisplay(run)
 
 	return (
 		<div className="flex items-center justify-between border-b py-3 last:border-b-0">
 			<div className="flex items-center gap-3">
 				<Badge variant="secondary" className={cn(statusColor)}>
-					{run.status}
+					{displayStatus}
 				</Badge>
 				<span className="text-sm text-muted-foreground">
 					{new Date(run.created_at).toLocaleDateString()}
@@ -27,6 +27,11 @@ function RunItem({ run }: { run: Run }) {
 			</div>
 			<span className="text-xs text-muted-foreground">
 				{run.completed_queries}/{run.total_queries} queries
+				{isPartial && (
+					<span className="ml-1 text-amber-600 dark:text-amber-400">
+						({run.failed_queries} failed)
+					</span>
+				)}
 			</span>
 		</div>
 	)
@@ -67,7 +72,7 @@ export function SignalPanel({ projectId }: SignalPanelProps) {
 		data: runsData,
 		isLoading: runsLoading,
 		error: runsError,
-	} = useRuns(projectId, { limit: 3 })
+	} = useRuns(projectId, { limit: 3, enablePolling: true })
 
 	const isLoading = perceptionLoading || runsLoading
 	const error = perceptionError || runsError

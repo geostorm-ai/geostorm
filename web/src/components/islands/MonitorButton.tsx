@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button"
 import { useTriggerMonitoring } from "@/hooks/useProjects"
-import { useEffect } from "react"
 
 interface MonitorButtonProps {
 	projectId: string
@@ -9,21 +8,6 @@ interface MonitorButtonProps {
 
 export function MonitorButton({ projectId, isDemo }: MonitorButtonProps) {
 	const mutation = useTriggerMonitoring(projectId)
-
-	useEffect(() => {
-		if (mutation.isSuccess) {
-			window.alert("Monitoring run started.")
-		}
-	}, [mutation.isSuccess])
-
-	useEffect(() => {
-		if (mutation.isError) {
-			const message = mutation.error instanceof Error
-				? mutation.error.message
-				: "Unknown error"
-			window.alert(`Monitoring failed: ${message}`)
-		}
-	}, [mutation.isError, mutation.error])
 
 	return (
 		<Button

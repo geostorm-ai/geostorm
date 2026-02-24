@@ -59,6 +59,9 @@ export const ProjectSchema = z.object({
 	is_demo: z.boolean(),
 	created_at: z.string(),
 	updated_at: z.string(),
+	latest_score: z.number().nullable().optional(),
+	run_count: z.number().optional(),
+	active_alert_count: z.number().optional(),
 })
 
 export type Project = z.infer<typeof ProjectSchema>

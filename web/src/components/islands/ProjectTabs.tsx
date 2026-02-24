@@ -1,5 +1,6 @@
 import { BrandEditor } from "@/components/islands/BrandEditor"
 import { CompetitorsManager } from "@/components/islands/CompetitorsManager"
+import { ProvidersManager } from "@/components/islands/ProvidersManager"
 import { RunsTable } from "@/components/islands/RunsTable"
 import { ScheduleEditor } from "@/components/islands/ScheduleEditor"
 import { TermsManager } from "@/components/islands/TermsManager"
@@ -24,6 +25,7 @@ export function ProjectTabs({ projectId, isDemo }: ProjectTabsProps) {
 				<TabsTrigger value="schedule">Schedule</TabsTrigger>
 				<TabsTrigger value="competitors">Competitors</TabsTrigger>
 				<TabsTrigger value="runs">Runs</TabsTrigger>
+				<TabsTrigger value="providers">Providers</TabsTrigger>
 			</TabsList>
 
 			<TabsContent value="overview">
@@ -108,6 +110,10 @@ export function ProjectTabs({ projectId, isDemo }: ProjectTabsProps) {
 
 			<TabsContent value="runs">
 				<RunsTable projectId={projectId} isDemo={isDemo} />
+			</TabsContent>
+
+			<TabsContent value="providers">
+				<ProvidersManager projectId={projectId} isDemo={isDemo} />
 			</TabsContent>
 		</Tabs>
 	)

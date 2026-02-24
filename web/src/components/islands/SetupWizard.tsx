@@ -13,6 +13,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
 import { ApiError, apiFetch } from "@/lib/api"
 import { DAY_NAMES } from "@/lib/constants"
 
@@ -65,6 +66,7 @@ export function SetupWizard() {
 
 	// Step 1 state
 	const [projectName, setProjectName] = useState("")
+	const [description, setDescription] = useState("")
 	const [brandName, setBrandName] = useState("")
 	const [brandAliases, setBrandAliases] = useState("")
 	const [competitorInput, setCompetitorInput] = useState("")
@@ -131,7 +133,7 @@ export function SetupWizard() {
 					name: projectName.trim(),
 					brand_name: brandName.trim(),
 					brand_aliases: aliases.length > 0 ? aliases : undefined,
-					description: null,
+					description: description.trim() || null,
 				}),
 			})
 
@@ -201,6 +203,17 @@ export function SetupWizard() {
 								placeholder="My Brand Monitoring"
 								value={projectName}
 								onChange={(e) => setProjectName(e.target.value)}
+							/>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="description">Description (optional)</Label>
+							<Textarea
+								id="description"
+								placeholder="What are you monitoring and why?"
+								value={description}
+								onChange={(e) => setDescription(e.target.value)}
+								rows={2}
 							/>
 						</div>
 
