@@ -13,8 +13,8 @@
   <a href="https://github.com/geostorm-ai/geostorm/actions/workflows/checks.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/geostorm-ai/geostorm/checks.yml?branch=main&style=flat&label=CI" />
   </a>
-  <a href="https://github.com/geostorm-ai/geostorm">
-    <img src="https://img.shields.io/badge/docker-ready-2496ED?style=flat&logo=docker&logoColor=white" />
+  <a href="https://github.com/geostorm-ai/geostorm/pkgs/container/geostorm">
+    <img src="https://img.shields.io/badge/docker-ghcr.io-2496ED?style=flat&logo=docker&logoColor=white" />
   </a>
   <a href="https://github.com/geostorm-ai/geostorm?tab=contributing-ov-file">
     <img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat" />
@@ -47,18 +47,17 @@ One container. One command. Full visibility into your AI presence.
 ## Quick Start
 
 ```bash
-git clone git@github.com:geostorm-ai/geostorm.git && cd geostorm
-docker compose up -d
+docker run -d -p 8080:8080 --name geostorm ghcr.io/geostorm-ai/geostorm
 ```
 
 Open [http://localhost:8080](http://localhost:8080) -- the demo loads immediately.
 
-**That's it.** No API keys, no configuration, no database setup. A demo project with 90 days of synthetic monitoring data is ready to explore.
+**That's it.** No git clone, no build step, no API keys, no database setup. A demo project with 90 days of synthetic monitoring data is ready to explore.
 
 <details>
 <summary><h3>Requirements</h3></summary>
 
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Docker](https://docs.docker.com/get-docker/)
 - That's it. Everything else runs inside the container.
 
 </details>
@@ -83,12 +82,15 @@ The demo data covers multiple AI models, competitor tracking, and trend analysis
 
 To start monitoring your own software:
 
-| Step | What Happens |
-|------|-------------|
-| **1. Get an API key** | Sign up at [OpenRouter](https://openrouter.ai/) -- one key gives you access to multiple AI models |
-| **2. Configure** | Go to **Settings** in the GeoStorm UI and paste your API key |
-| **3. Create a project** | Click **Create Project** and configure your first monitor |
-| **4. Monitor** | GeoStorm runs on a schedule and alerts you when things change |
+**1. Get an API key** at [OpenRouter](https://openrouter.ai/) -- one key gives you access to multiple AI models.
+
+**2. Restart with your key:**
+
+```bash
+docker run -d -p 8080:8080 -e OPENROUTER_API_KEY=sk-or-v1-... --name geostorm ghcr.io/geostorm-ai/geostorm
+```
+
+**3. Create a project** in the UI and GeoStorm starts monitoring on a schedule.
 
 ---
 
@@ -148,13 +150,16 @@ GeoStorm is open-source and we welcome contributions.
 ### Development Setup
 
 ```bash
-# Backend
+# Run locally with a local build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+# Backend checks
 uv sync --frozen --all-extras
 uv run ruff check .
 uv run mypy src/ --strict
 uv run pytest tests/ -v
 
-# Frontend
+# Frontend checks
 cd web && pnpm install --frozen-lockfile
 pnpm astro check
 pnpm tsc --noEmit
@@ -167,7 +172,7 @@ pnpm tsc --noEmit
 ### Ready to see what AI thinks about your software?
 
 ```bash
-docker compose up -d
+docker run -d -p 8080:8080 --name geostorm ghcr.io/geostorm-ai/geostorm
 ```
 
 <a href="https://github.com/geostorm-ai/geostorm">

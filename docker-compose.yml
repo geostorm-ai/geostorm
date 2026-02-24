@@ -1,10 +1,10 @@
 services:
   web:
-    build: .
+    image: ghcr.io/geostorm-ai/geostorm:latest
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/app/data
+      - geostorm-data:/app/data
     env_file:
       - path: .env
         required: false
@@ -15,3 +15,6 @@ services:
       retries: 3
       start_period: 15s
     restart: unless-stopped
+
+volumes:
+  geostorm-data:
