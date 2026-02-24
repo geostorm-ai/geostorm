@@ -30,3 +30,14 @@ jobs:
       - run: cd web && pnpm install --frozen-lockfile
       - run: cd web && pnpm astro check
       - run: cd web && pnpm tsc --noEmit
+
+  all-checks-passed:
+    if: always()
+    needs: [python, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "Some checks failed or were cancelled"
+            exit 1
+          fi
