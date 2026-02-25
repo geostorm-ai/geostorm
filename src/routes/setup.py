@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Response
 
 from src.config import get_settings
 from src.database import get_db_connection
-from src.llm.base import LLMError, PromptRequest, ProviderType
+from src.llm.base import RECOMMENDED_MODELS, LLMError, PromptRequest, ProviderType, with_web_search
 from src.llm.client import send_structured_prompt
 from src.llm.factory import get_api_key
 from src.schemas import (
@@ -99,11 +99,20 @@ async def delete_api_key() -> Response:
     return Response(status_code=204)
 
 
+@router.get("/settings/models")
+async def get_recommended_models() -> list[dict[str, str]]:
+    """Return the curated list of models available through OpenRouter."""
+    return RECOMMENDED_MODELS
+
+
 _AUTOFILL_SYSTEM_PROMPT = """\
 You are an assistant for GeoStorm, a platform that tracks how AI models \
 recommend software products. GeoStorm monitors AI perception by sending \
 prompts like "What are the best options for {term}?" to multiple LLM providers \
 and analyzing which products get recommended.
+
+Use web search to verify real product information — official names, actual \
+competitors, what the product really does. Don't guess.
 
 Given a company name, URL, GitHub repo, or package name, return a JSON object with:
 - brand_name: the official brand/product name
@@ -148,7 +157,7 @@ async def autofill_project(req: AutofillRequest) -> AutofillResponse:
             data = await send_structured_prompt(
                 PromptRequest(
                     prompt=req.input,
-                    model_id="google/gemini-2.0-flash-001",
+                    model_id=with_web_search("google/gemini-3-flash-preview"),
                     system_prompt=_AUTOFILL_SYSTEM_PROMPT,
                     temperature=0.3,
                 ),

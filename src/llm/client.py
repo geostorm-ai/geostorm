@@ -35,13 +35,18 @@ async def send_prompt(request: PromptRequest, provider_type: ProviderType) -> Pr
     output_tokens = usage.output_tokens or 0
 
     cost_usd = 0.0
-    price = calc_price(
-        Usage(input_tokens=input_tokens, output_tokens=output_tokens),
-        model_ref=request.model_id,
-        provider_id=provider_type.value,
-    )
-    if price:
-        cost_usd = float(price.total_price)
+    # Strip :online suffix — genai_prices doesn't recognize OpenRouter's online variants
+    pricing_model_id = request.model_id.removesuffix(":online")
+    try:
+        price = calc_price(
+            Usage(input_tokens=input_tokens, output_tokens=output_tokens),
+            model_ref=pricing_model_id,
+            provider_id=provider_type.value,
+        )
+        if price:
+            cost_usd = float(price.total_price)
+    except LookupError:
+        pass
 
     return PromptResponse(
         text=result.output,

@@ -14,6 +14,27 @@ class ProviderType(StrEnum):
     GOOGLE = "google"
 
 
+# ---------------------------------------------------------------------------
+# Model catalog — curated models available through OpenRouter
+# ---------------------------------------------------------------------------
+
+RECOMMENDED_MODELS: list[dict[str, str]] = [
+    {"id": "anthropic/claude-sonnet-4.6", "name": "Claude Sonnet 4.6"},
+    {"id": "openai/gpt-5.2", "name": "GPT-5.2"},
+    {"id": "google/gemini-3-flash-preview", "name": "Gemini 3 Flash"},
+]
+
+
+def with_web_search(model_id: str) -> str:
+    """Append OpenRouter's :online suffix for web search grounding.
+
+    Idempotent — if the model already has :online, it's returned unchanged.
+    """
+    if model_id.endswith(":online"):
+        return model_id
+    return f"{model_id}:online"
+
+
 class PromptRequest(BaseModel):
     """Input for an LLM prompt request."""
 

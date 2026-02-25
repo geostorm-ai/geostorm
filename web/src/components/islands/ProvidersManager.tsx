@@ -1,9 +1,9 @@
 import { AlertCircle, X } from "lucide-react"
 import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
 	Select,
@@ -20,6 +20,22 @@ import {
 	useDeleteProvider,
 } from "@/hooks/useProviders"
 
+interface RecommendedModel {
+	id: string
+	name: string
+}
+
+function useRecommendedModels() {
+	return useQuery<RecommendedModel[]>({
+		queryKey: ["recommended-models"],
+		queryFn: async () => {
+			const res = await fetch("/api/settings/models")
+			if (!res.ok) throw new Error("Failed to fetch models")
+			return res.json()
+		},
+	})
+}
+
 interface ProvidersManagerProps {
 	projectId: string
 	isDemo: boolean
@@ -27,19 +43,18 @@ interface ProvidersManagerProps {
 
 export function ProvidersManager({ projectId, isDemo }: ProvidersManagerProps) {
 	const { data: providers, isLoading } = useProviders(projectId)
+	const { data: recommendedModels } = useRecommendedModels()
 	const createProvider = useCreateProvider(projectId)
 	const updateProvider = useUpdateProvider(projectId)
 	const deleteProvider = useDeleteProvider(projectId)
-	const [providerName, setProviderName] = useState("openrouter")
-	const [modelName, setModelName] = useState("")
+	const [selectedModel, setSelectedModel] = useState("")
 
 	function handleSubmit(e: React.FormEvent) {
 		e.preventDefault()
-		const trimmed = modelName.trim()
-		if (!trimmed) return
+		if (!selectedModel) return
 		createProvider.mutate(
-			{ provider_name: providerName, model_name: trimmed },
-			{ onSuccess: () => setModelName("") },
+			{ provider_name: "openrouter", model_name: selectedModel },
+			{ onSuccess: () => setSelectedModel("") },
 		)
 	}
 
@@ -71,37 +86,32 @@ export function ProvidersManager({ projectId, isDemo }: ProvidersManagerProps) {
 					</div>
 				)}
 
-				<form onSubmit={handleSubmit} className="space-y-3">
-					<div className="flex gap-2">
-						<div className="w-40">
-							<Label htmlFor="provider-name" className="sr-only">Provider</Label>
-							<Select
-								value={providerName}
-								onValueChange={setProviderName}
-								disabled={isDemo}
-							>
-								<SelectTrigger id="provider-name">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="openrouter">OpenRouter</SelectItem>
-								</SelectContent>
-							</Select>
-						</div>
-						<Input
-							placeholder="Model name (e.g. openai/gpt-5.2)"
-							value={modelName}
-							onChange={(e) => setModelName(e.target.value)}
-							disabled={isDemo || createProvider.isPending}
-							className="flex-1"
-						/>
-						<Button
-							type="submit"
-							disabled={isDemo || createProvider.isPending || !modelName.trim()}
+				<form onSubmit={handleSubmit} className="flex gap-2">
+					<div className="flex-1">
+						<Label htmlFor="model-select" className="sr-only">Model</Label>
+						<Select
+							value={selectedModel}
+							onValueChange={setSelectedModel}
+							disabled={isDemo}
 						>
-							Add
-						</Button>
+							<SelectTrigger id="model-select">
+								<SelectValue placeholder="Select a model..." />
+							</SelectTrigger>
+							<SelectContent>
+								{recommendedModels?.map((m) => (
+									<SelectItem key={m.id} value={m.id}>
+										{m.name}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</div>
+					<Button
+						type="submit"
+						disabled={isDemo || createProvider.isPending || !selectedModel}
+					>
+						Add
+					</Button>
 				</form>
 
 				{providers && providers.length === 0 && (

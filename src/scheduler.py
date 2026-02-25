@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 import logfire
 
 from src.database import get_db_connection
-from src.llm.base import LLMError, PromptRequest, PromptResponse, ProviderType
+from src.llm.base import LLMError, PromptRequest, PromptResponse, ProviderType, with_web_search
 from src.llm.client import send_prompt
 from src.llm.prompt_service import generate_prompt, get_system_prompt
 from src.progress import RunPhase, RunProgressEvent, progress_bus
@@ -229,7 +229,8 @@ async def _execute_single_query(  # noqa: PLR0913
             return False
 
         try:
-            request = PromptRequest(prompt=prompt_text, model_id=model_name, system_prompt=system_prompt)
+            online_model = with_web_search(model_name)
+            request = PromptRequest(prompt=prompt_text, model_id=online_model, system_prompt=system_prompt)
             response = await send_prompt(request, provider_type)
             await _store_response(run_id, project_id, term_id, provider_name, model_name, response)
         except LLMError as e:
