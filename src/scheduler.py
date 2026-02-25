@@ -13,6 +13,7 @@ from src.database import get_db_connection
 from src.llm.base import LLMProviderError, PromptRequest, PromptResponse, ProviderType
 from src.llm.factory import create_provider
 from src.llm.prompt_service import generate_prompt, get_system_prompt
+from src.progress import RunPhase, RunProgressEvent, progress_bus
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -104,6 +105,11 @@ async def execute_monitoring_run(
     total_queries = len(terms) * len(providers)
     await _create_run_record(run_id, project_id, trigger_type, total_queries, now_iso)
 
+    progress_bus.publish(RunProgressEvent(
+        run_id=run_id, phase=RunPhase.preparing,
+        completed=0, failed=0, total=total_queries,
+    ))
+
     completed, failed = await _execute_queries(run_id, project_id, terms, providers)
     await _finalize_run(run_id, project_id, schedule_id, completed, failed)
 
@@ -149,6 +155,7 @@ async def _execute_queries(
     """Execute all term x provider queries and return (completed, failed) counts."""
     completed_queries = 0
     failed_queries = 0
+    total_queries = len(terms) * len(providers)
     system_prompt = get_system_prompt()
 
     for term in terms:
@@ -160,6 +167,12 @@ async def _execute_queries(
             provider_name: str = provider_row["provider_name"]
             model_name: str = provider_row["model_name"]
 
+            progress_bus.publish(RunProgressEvent(
+                run_id=run_id, phase=RunPhase.querying,
+                completed=completed_queries, failed=failed_queries, total=total_queries,
+                current_term=term_name, current_provider=provider_name,
+            ))
+
             success = await _execute_single_query(
                 run_id, project_id, term_id, provider_name, model_name, prompt_text, system_prompt,
             )
@@ -168,9 +181,28 @@ async def _execute_queries(
             else:
                 failed_queries += 1
 
+            # Incremental DB update so polling clients see progress immediately
+            await _update_run_progress(run_id, completed_queries, failed_queries)
+
+            progress_bus.publish(RunProgressEvent(
+                run_id=run_id, phase=RunPhase.querying,
+                completed=completed_queries, failed=failed_queries, total=total_queries,
+                current_term=term_name, current_provider=provider_name,
+            ))
+
             await asyncio.sleep(0.1)
 
     return completed_queries, failed_queries
+
+
+async def _update_run_progress(run_id: str, completed: int, failed: int) -> None:
+    """Incrementally update run progress in the database after each query."""
+    async with get_db_connection() as db:
+        await db.execute(
+            "UPDATE runs SET completed_queries = ?, failed_queries = ? WHERE id = ?",
+            (completed, failed, run_id),
+        )
+        await db.commit()
 
 
 async def _execute_single_query(  # noqa: PLR0913
@@ -240,12 +272,26 @@ async def _finalize_run(run_id: str, project_id: str, schedule_id: str | None, c
 
     logger.info("Run %s finished: status=%s, completed=%d, failed=%d", run_id, final_status, completed, failed)
 
+    total = completed + failed
+
     if final_status == "completed":
+        progress_bus.publish(RunProgressEvent(
+            run_id=run_id, phase=RunPhase.analyzing,
+            completed=completed, failed=failed, total=total,
+            status="running",
+        ))
         try:
             from src.services.analysis import analyze_run  # noqa: PLC0415
             await analyze_run(run_id, project_id)
         except Exception:
             logger.exception("Analysis pipeline failed for run %s", run_id)
+
+    final_phase = RunPhase.complete if final_status == "completed" else RunPhase.failed
+    progress_bus.publish(RunProgressEvent(
+        run_id=run_id, phase=final_phase,
+        completed=completed, failed=failed, total=total,
+        status=final_status,
+    ))
 
 
 async def _store_response(  # noqa: PLR0913

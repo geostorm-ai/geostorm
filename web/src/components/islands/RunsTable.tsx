@@ -1,6 +1,7 @@
 import { Play } from "lucide-react"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { ResponseViewer } from "@/components/islands/ResponseViewer"
+import { RunProgressPipeline } from "@/components/RunProgressPipeline"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { useTriggerMonitoring } from "@/hooks/useProjects"
 import { useRuns } from "@/hooks/useRuns"
+import { useRunProgress } from "@/hooks/useRunProgress"
 import { getRunDisplay } from "@/lib/runs"
 
 interface RunsTableProps {
@@ -30,6 +32,12 @@ export function RunsTable({ projectId, isDemo }: RunsTableProps) {
 	const runs = data?.items ?? []
 	const total = data?.total ?? 0
 	const hasMore = runs.length < total
+
+	// Find the first running run for SSE progress
+	const runningRun = runs.find(
+		(r) => r.status === "running" || r.status === "pending",
+	)
+	const progress = useRunProgress(runningRun?.id, !!runningRun)
 
 	function formatDate(dateStr: string | null): string {
 		if (!dateStr) return "-"
@@ -96,33 +104,48 @@ export function RunsTable({ projectId, isDemo }: RunsTableProps) {
 									<tbody>
 										{runs.map((run) => {
 											const { displayStatus, statusColor, isPartial } = getRunDisplay(run)
+											const isRunning = run.status === "running" || run.status === "pending"
+											const showPipeline = isRunning && progress && progress.run_id === run.id
+
+											// Use SSE counts when available, fall back to DB-polled values
+											const completed = showPipeline ? progress.completed : run.completed_queries
+											const failed = showPipeline ? progress.failed : run.failed_queries
+
 											return (
-												<tr
-													key={run.id}
-													className="border-b last:border-0 cursor-pointer hover:bg-accent/50 transition-colors"
-													onClick={() => setSelectedRunId(run.id)}
-												>
-													<td className="py-2 pr-4">
-														<Badge className={statusColor}>
-															{displayStatus}
-														</Badge>
-													</td>
-													<td className="py-2 pr-4 capitalize">
-														{run.trigger_type}
-													</td>
-													<td className="py-2 pr-4">
-														{run.completed_queries}/{run.total_queries}
-														{isPartial && (
-															<span className="ml-1 text-amber-600 dark:text-amber-400">
-																({run.failed_queries} failed)
-															</span>
-														)}
-													</td>
-													<td className="py-2 pr-4">
-														{formatDate(run.started_at)}
-													</td>
-													<td className="py-2">{formatDate(run.completed_at)}</td>
-												</tr>
+												<Fragment key={run.id}>
+													<tr
+														className="border-b last:border-0 cursor-pointer hover:bg-accent/50 transition-colors"
+														onClick={() => setSelectedRunId(run.id)}
+													>
+														<td className="py-2 pr-4">
+															<Badge className={statusColor}>
+																{displayStatus}
+															</Badge>
+														</td>
+														<td className="py-2 pr-4 capitalize">
+															{run.trigger_type}
+														</td>
+														<td className="py-2 pr-4">
+															{completed}/{run.total_queries}
+															{isPartial && (
+																<span className="ml-1 text-amber-600 dark:text-amber-400">
+																	({failed} failed)
+																</span>
+															)}
+														</td>
+														<td className="py-2 pr-4">
+															{formatDate(run.started_at)}
+														</td>
+														<td className="py-2">{formatDate(run.completed_at)}</td>
+													</tr>
+													{showPipeline && (
+														<tr className="border-b last:border-0">
+															<td colSpan={5} className="py-3 px-2">
+																<RunProgressPipeline progress={progress} />
+															</td>
+														</tr>
+													)}
+												</Fragment>
 											)
 										})}
 									</tbody>

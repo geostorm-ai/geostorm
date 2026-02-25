@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+import logging
 from datetime import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from src.database import get_db_connection
+from src.progress import RunPhase, RunProgressEvent, progress_bus
 from src.routes.deps import get_project_or_404
 from src.schemas import (
     MentionItem,
@@ -141,8 +149,69 @@ async def get_run(run_id: str) -> RunDetailResponse:
     )
 
 
+logger = logging.getLogger(__name__)
+
+
 # ---------------------------------------------------------------------------
-# 3) GET /api/runs/{run_id}/responses
+# 3) GET /api/runs/{run_id}/progress  (SSE)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/runs/{run_id}/progress")
+async def stream_run_progress(run_id: str) -> StreamingResponse:
+    """Server-Sent Events stream for real-time run progress."""
+    # Verify run exists
+    async with get_db_connection() as db:
+        cursor = await db.execute(
+            "SELECT status, completed_queries, failed_queries, total_queries FROM runs WHERE id = ?",
+            (run_id,),
+        )
+        run = await cursor.fetchone()
+        if not run:
+            raise HTTPException(status_code=404, detail="Run not found")
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        status = run["status"]
+        # If already done, send a single final event and close
+        if status in ("completed", "failed", "cancelled"):
+            phase = RunPhase.complete if status == "completed" else RunPhase.failed
+            event = RunProgressEvent(
+                run_id=run_id, phase=phase,
+                completed=run["completed_queries"], failed=run["failed_queries"],
+                total=run["total_queries"], status=status,
+            )
+            yield f"data: {json.dumps(event.to_dict())}\n\n"
+            return
+
+        queue = progress_bus.subscribe(run_id)
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"data: {json.dumps(event.to_dict())}\n\n"
+                    # Close stream when run finishes
+                    if event.phase in (RunPhase.complete, RunPhase.failed):
+                        return
+                except TimeoutError:
+                    # Keepalive comment to prevent proxy/browser timeout
+                    yield ": keepalive\n\n"
+        except asyncio.CancelledError:
+            return
+        finally:
+            progress_bus.unsubscribe(run_id, queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4) GET /api/runs/{run_id}/responses
 # ---------------------------------------------------------------------------
 
 
