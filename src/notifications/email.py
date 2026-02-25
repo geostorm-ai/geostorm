@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 from typing import TYPE_CHECKING
 
 import aiosmtplib
+import logfire
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
@@ -90,38 +91,39 @@ async def send_email_alert(
 
     Returns True on success, False on failure. Never raises.
     """
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"[{alert.severity.value.upper()}] {alert.title}"
-    msg["From"] = smtp_settings.from_addr
-    msg["To"] = recipient
+    with logfire.span('email notification', alert_id=alert.id):
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"[{alert.severity.value.upper()}] {alert.title}"
+        msg["From"] = smtp_settings.from_addr
+        msg["To"] = recipient
 
-    msg.attach(MIMEText(_build_plain_body(alert, project_name), "plain"))
-    msg.attach(MIMEText(_build_html_body(alert, project_name), "html"))
+        msg.attach(MIMEText(_build_plain_body(alert, project_name), "plain"))
+        msg.attach(MIMEText(_build_html_body(alert, project_name), "html"))
 
-    for attempt in range(_MAX_RETRIES):
-        try:
-            await aiosmtplib.send(
-                msg,
-                hostname=smtp_settings.host,
-                port=smtp_settings.port,
-                username=smtp_settings.user,
-                password=smtp_settings.password,
-                start_tls=True,
-            )
-        except Exception:  # noqa: BLE001
-            logger.warning(
-                "Email send failed on attempt %d/%d",
-                attempt + 1,
-                _MAX_RETRIES,
-                exc_info=True,
-            )
-        else:
-            logger.info("Email alert sent to %s for alert_id=%s", recipient, alert.id)
-            return True
+        for attempt in range(_MAX_RETRIES):
+            try:
+                await aiosmtplib.send(
+                    msg,
+                    hostname=smtp_settings.host,
+                    port=smtp_settings.port,
+                    username=smtp_settings.user,
+                    password=smtp_settings.password,
+                    start_tls=True,
+                )
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "Email send failed on attempt %d/%d",
+                    attempt + 1,
+                    _MAX_RETRIES,
+                    exc_info=True,
+                )
+            else:
+                logger.info("Email alert sent to %s for alert_id=%s", recipient, alert.id)
+                return True
 
-        if attempt < _MAX_RETRIES - 1:
-            delay = _BASE_DELAY * (2**attempt)
-            await asyncio.sleep(delay)
+            if attempt < _MAX_RETRIES - 1:
+                delay = _BASE_DELAY * (2**attempt)
+                await asyncio.sleep(delay)
 
-    logger.error("Failed to send email alert after %d attempts for alert_id=%s", _MAX_RETRIES, alert.id)
-    return False
+        logger.error("Failed to send email alert after %d attempts for alert_id=%s", _MAX_RETRIES, alert.id)
+        return False

@@ -2,6 +2,8 @@
 
 import logging
 
+import logfire
+
 from src.config import get_settings
 from src.database import get_db_connection
 from src.llm.base import BaseLLMProvider, ProviderType
@@ -52,6 +54,7 @@ async def create_provider(provider_type: ProviderType) -> BaseLLMProvider | None
         return None
 
     if provider_type == ProviderType.OPENROUTER:
+        logfire.info('created LLM provider', provider=provider_type.value)
         return OpenRouterProvider(api_key)
 
     # Future: add OPENAI, ANTHROPIC, GOOGLE providers here

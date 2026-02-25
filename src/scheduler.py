@@ -9,6 +9,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+import logfire
+
 from src.database import get_db_connection
 from src.llm.base import LLMProviderError, PromptRequest, PromptResponse, ProviderType
 from src.llm.factory import create_provider
@@ -23,38 +25,39 @@ logger = logging.getLogger(__name__)
 
 async def scheduling_loop() -> None:
     """Main scheduling loop — called every 60s by APScheduler."""
-    logger.info("Scheduling loop running")
-    now = datetime.now(tz=UTC)
+    with logfire.span('scheduling loop'):
+        logger.info("Scheduling loop running")
+        now = datetime.now(tz=UTC)
 
-    try:
-        async with get_db_connection() as db:
-            cursor = await db.execute(
-                """
-                SELECT ps.id, ps.project_id, ps.hour_of_day, ps.days_of_week_json, ps.last_run_at
-                FROM project_schedules ps
-                JOIN projects p ON p.id = ps.project_id
-                WHERE ps.is_active = 1 AND p.is_demo = 0 AND p.deleted_at IS NULL
-                """,
-            )
-            schedules = await cursor.fetchall()
+        try:
+            async with get_db_connection() as db:
+                cursor = await db.execute(
+                    """
+                    SELECT ps.id, ps.project_id, ps.hour_of_day, ps.days_of_week_json, ps.last_run_at
+                    FROM project_schedules ps
+                    JOIN projects p ON p.id = ps.project_id
+                    WHERE ps.is_active = 1 AND p.is_demo = 0 AND p.deleted_at IS NULL
+                    """,
+                )
+                schedules = await cursor.fetchall()
 
-        for schedule in schedules:
-            if should_run_schedule(schedule, now):
-                project_id: str = schedule["project_id"]
-                schedule_id: str = schedule["id"]
-                logger.info("Schedule %s is due for project %s", schedule_id, project_id)
-                try:
-                    run_id = await execute_monitoring_run(
-                        project_id=project_id,
-                        schedule_id=schedule_id,
-                        trigger_type="scheduled",
-                    )
-                    logger.info("Monitoring run %s completed for project %s", run_id, project_id)
-                except Exception:
-                    logger.exception("Failed to execute monitoring run for project %s", project_id)
+            for schedule in schedules:
+                if should_run_schedule(schedule, now):
+                    project_id: str = schedule["project_id"]
+                    schedule_id: str = schedule["id"]
+                    logger.info("Schedule %s is due for project %s", schedule_id, project_id)
+                    try:
+                        run_id = await execute_monitoring_run(
+                            project_id=project_id,
+                            schedule_id=schedule_id,
+                            trigger_type="scheduled",
+                        )
+                        logger.info("Monitoring run %s completed for project %s", run_id, project_id)
+                    except Exception:
+                        logger.exception("Failed to execute monitoring run for project %s", project_id)
 
-    except Exception:
-        logger.exception("Error in scheduling loop")
+        except Exception:
+            logger.exception("Error in scheduling loop")
 
 
 def should_run_schedule(schedule: object, current_time: datetime) -> bool:
@@ -95,25 +98,26 @@ async def execute_monitoring_run(
     calls the LLM, and stores responses.
     """
     run_id = uuid.uuid4().hex
-    now_iso = datetime.now(tz=UTC).isoformat()
-    terms, providers = await _load_run_inputs(project_id)
+    with logfire.span('monitoring run', run_id=run_id, project_id=project_id, trigger_type=trigger_type):
+        now_iso = datetime.now(tz=UTC).isoformat()
+        terms, providers = await _load_run_inputs(project_id)
 
-    if not terms or not providers:
-        logger.warning("No active terms or providers for project %s, skipping run", project_id)
+        if not terms or not providers:
+            logger.warning("No active terms or providers for project %s, skipping run", project_id)
+            return run_id
+
+        total_queries = len(terms) * len(providers)
+        await _create_run_record(run_id, project_id, trigger_type, total_queries, now_iso)
+
+        progress_bus.publish(RunProgressEvent(
+            run_id=run_id, phase=RunPhase.preparing,
+            completed=0, failed=0, total=total_queries,
+        ))
+
+        completed, failed = await _execute_queries(run_id, project_id, terms, providers)
+        await _finalize_run(run_id, project_id, schedule_id, completed, failed)
+
         return run_id
-
-    total_queries = len(terms) * len(providers)
-    await _create_run_record(run_id, project_id, trigger_type, total_queries, now_iso)
-
-    progress_bus.publish(RunProgressEvent(
-        run_id=run_id, phase=RunPhase.preparing,
-        completed=0, failed=0, total=total_queries,
-    ))
-
-    completed, failed = await _execute_queries(run_id, project_id, terms, providers)
-    await _finalize_run(run_id, project_id, schedule_id, completed, failed)
-
-    return run_id
 
 
 async def _load_run_inputs(project_id: str) -> tuple[Sequence[Any], Sequence[Any]]:
@@ -215,37 +219,38 @@ async def _execute_single_query(  # noqa: PLR0913
     system_prompt: str,
 ) -> bool:
     """Execute a single LLM query. Returns True on success, False on failure."""
-    try:
-        provider_type = ProviderType(provider_name)
-    except ValueError:
-        logger.warning("Unknown provider type: %s", provider_name)
-        await _store_error_response(run_id, project_id, term_id, provider_name, model_name,
-                                    f"Unknown provider type: {provider_name}")
-        return False
+    with logfire.span('LLM query', provider=provider_name, model=model_name):
+        try:
+            provider_type = ProviderType(provider_name)
+        except ValueError:
+            logger.warning("Unknown provider type: %s", provider_name)
+            await _store_error_response(run_id, project_id, term_id, provider_name, model_name,
+                                        f"Unknown provider type: {provider_name}")
+            return False
 
-    provider = await create_provider(provider_type)
-    if not provider:
-        logger.warning("No API key for provider %s, skipping", provider_name)
-        await _store_error_response(run_id, project_id, term_id, provider_name, model_name,
-                                    f"No API key configured for {provider_name}")
-        return False
+        provider = await create_provider(provider_type)
+        if not provider:
+            logger.warning("No API key for provider %s, skipping", provider_name)
+            await _store_error_response(run_id, project_id, term_id, provider_name, model_name,
+                                        f"No API key configured for {provider_name}")
+            return False
 
-    try:
-        request = PromptRequest(prompt=prompt_text, model_id=model_name, system_prompt=system_prompt)
-        response = await provider.send_prompt(request)
-        await _store_response(run_id, project_id, term_id, provider_name, model_name, response)
-    except LLMProviderError as e:
-        logger.warning("LLM error for %s/%s: %s", provider_name, model_name, e.error.message)
-        await _store_error_response(run_id, project_id, term_id, provider_name, model_name, e.error.message)
-        return False
-    except Exception:
-        logger.exception("Unexpected error for %s/%s", provider_name, model_name)
-        await _store_error_response(run_id, project_id, term_id, provider_name, model_name, "Unexpected error")
-        return False
-    finally:
-        await provider.close()
+        try:
+            request = PromptRequest(prompt=prompt_text, model_id=model_name, system_prompt=system_prompt)
+            response = await provider.send_prompt(request)
+            await _store_response(run_id, project_id, term_id, provider_name, model_name, response)
+        except LLMProviderError as e:
+            logger.warning("LLM error for %s/%s: %s", provider_name, model_name, e.error.message)
+            await _store_error_response(run_id, project_id, term_id, provider_name, model_name, e.error.message)
+            return False
+        except Exception:
+            logger.exception("Unexpected error for %s/%s", provider_name, model_name)
+            await _store_error_response(run_id, project_id, term_id, provider_name, model_name, "Unexpected error")
+            return False
+        finally:
+            await provider.close()
 
-    return True
+        return True
 
 
 async def _finalize_run(run_id: str, project_id: str, schedule_id: str | None, completed: int, failed: int) -> None:

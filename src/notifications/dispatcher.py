@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+import logfire
+
 from src.config import Settings, get_settings
 from src.models import Alert, AlertChannel, AlertSeverity, AlertType
 from src.notifications.email import SmtpSettings, send_email_alert
@@ -86,43 +88,44 @@ async def dispatch_alerts(project_id: str, alert_ids: list[str]) -> None:
     if not alert_ids:
         return
 
-    configs = await get_alert_configs(project_id)
-    settings = get_settings()
-    project_name = await get_project_name(project_id)
+    with logfire.span('dispatch alerts', project_id=project_id, alert_count=len(alert_ids)):
+        configs = await get_alert_configs(project_id)
+        settings = get_settings()
+        project_name = await get_project_name(project_id)
 
-    # Fallback: if no configs but slack_webhook_url is set in env, use that
-    if not configs and settings.slack_webhook_url:
-        logger.info("No alert configs for project %s, using env Slack webhook fallback", project_id)
-        await _dispatch_with_fallback(alert_ids, project_name, settings)
-        return
+        # Fallback: if no configs but slack_webhook_url is set in env, use that
+        if not configs and settings.slack_webhook_url:
+            logger.info("No alert configs for project %s, using env Slack webhook fallback", project_id)
+            await _dispatch_with_fallback(alert_ids, project_name, settings)
+            return
 
-    if not configs:
-        logger.debug("No alert configs and no env fallback for project %s, skipping dispatch", project_id)
-        return
+        if not configs:
+            logger.debug("No alert configs and no env fallback for project %s, skipping dispatch", project_id)
+            return
 
-    enabled_configs = [c for c in configs if c.is_enabled]
-    if not enabled_configs:
-        logger.debug("All alert configs disabled for project %s", project_id)
-        return
+        enabled_configs = [c for c in configs if c.is_enabled]
+        if not enabled_configs:
+            logger.debug("All alert configs disabled for project %s", project_id)
+            return
 
-    for alert_id in alert_ids:
-        alert = await get_alert(alert_id)
-        if not alert:
-            logger.warning("Alert %s not found, skipping dispatch", alert_id)
-            continue
-
-        for config in enabled_configs:
-            if not _type_matches(alert.alert_type, config.alert_types):
-                continue
-            if not _severity_meets_minimum(alert.severity, config.min_severity):
+        for alert_id in alert_ids:
+            alert = await get_alert(alert_id)
+            if not alert:
+                logger.warning("Alert %s not found, skipping dispatch", alert_id)
                 continue
 
-            try:
-                await _send_to_channel(config.channel, alert, config.endpoint, project_name, settings)
-            except Exception:
-                logger.exception(
-                    "Failed to send alert %s via %s to %s",
-                    alert_id,
-                    config.channel,
-                    config.endpoint,
-                )
+            for config in enabled_configs:
+                if not _type_matches(alert.alert_type, config.alert_types):
+                    continue
+                if not _severity_meets_minimum(alert.severity, config.min_severity):
+                    continue
+
+                try:
+                    await _send_to_channel(config.channel, alert, config.endpoint, project_name, settings)
+                except Exception:
+                    logger.exception(
+                        "Failed to send alert %s via %s to %s",
+                        alert_id,
+                        config.channel,
+                        config.endpoint,
+                    )

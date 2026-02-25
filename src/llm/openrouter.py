@@ -8,6 +8,7 @@ import time
 from typing import NoReturn
 
 import httpx
+import logfire
 
 from src.llm.base import (
     BaseLLMProvider,
@@ -123,33 +124,35 @@ class OpenRouterProvider(BaseLLMProvider):
             },
             timeout=httpx.Timeout(60.0, connect=10.0),
         )
+        logfire.instrument_httpx(self._client)
 
     async def _send_request(self, request: PromptRequest) -> PromptResponse:
         """Send a chat completion request to OpenRouter."""
-        messages = _build_messages(request)
-        payload = _build_payload(request, messages)
+        with logfire.span('openrouter request', model=request.model_id):
+            messages = _build_messages(request)
+            payload = _build_payload(request, messages)
 
-        start = time.perf_counter()
-        response = await self._do_post(payload)
-        latency_ms = int((time.perf_counter() - start) * 1000)
+            start = time.perf_counter()
+            response = await self._do_post(payload)
+            latency_ms = int((time.perf_counter() - start) * 1000)
 
-        if response.status_code != 200:  # noqa: PLR2004
-            self._raise_http_error(response)
+            if response.status_code != 200:  # noqa: PLR2004
+                self._raise_http_error(response)
 
-        data: dict[str, object] = response.json()
-        text = _parse_response_text(data)
-        prompt_tokens, completion_tokens, cost_usd = _parse_usage(data)
+            data: dict[str, object] = response.json()
+            text = _parse_response_text(data)
+            prompt_tokens, completion_tokens, cost_usd = _parse_usage(data)
 
-        return PromptResponse(
-            text=text,
-            model_id=request.model_id,
-            provider=ProviderType.OPENROUTER,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=prompt_tokens + completion_tokens,
-            latency_ms=latency_ms,
-            cost_usd=cost_usd,
-        )
+            return PromptResponse(
+                text=text,
+                model_id=request.model_id,
+                provider=ProviderType.OPENROUTER,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+                latency_ms=latency_ms,
+                cost_usd=cost_usd,
+            )
 
     async def _do_post(self, payload: dict[str, object]) -> httpx.Response:
         """Execute the HTTP POST, converting transport errors to LLMProviderError."""

@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 import httpx
+import logfire
 
 from src.models import Alert, AlertSeverity
 
@@ -78,36 +79,37 @@ async def send_slack_alert(alert: Alert, webhook_url: str, project_name: str) ->
 
     Returns True on success, False on failure. Never raises.
     """
-    payload: dict[str, object] = {
-        "blocks": _build_blocks(alert, project_name),
-        "text": f"[{alert.severity.value.upper()}] {alert.title}",
-    }
+    with logfire.span('slack notification', alert_id=alert.id):
+        payload: dict[str, object] = {
+            "blocks": _build_blocks(alert, project_name),
+            "text": f"[{alert.severity.value.upper()}] {alert.title}",
+        }
 
-    for attempt in range(_MAX_RETRIES):
-        try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-                response = await client.post(webhook_url, json=payload)
-            if response.status_code == 200:  # noqa: PLR2004
-                logger.info("Slack alert sent for alert_id=%s", alert.id)
-                return True
-            logger.warning(
-                "Slack webhook returned %d on attempt %d/%d: %s",
-                response.status_code,
-                attempt + 1,
-                _MAX_RETRIES,
-                response.text[:200],
-            )
-        except Exception:  # noqa: BLE001
-            logger.warning(
-                "Slack webhook request failed on attempt %d/%d",
-                attempt + 1,
-                _MAX_RETRIES,
-                exc_info=True,
-            )
+        for attempt in range(_MAX_RETRIES):
+            try:
+                async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                    response = await client.post(webhook_url, json=payload)
+                if response.status_code == 200:  # noqa: PLR2004
+                    logger.info("Slack alert sent for alert_id=%s", alert.id)
+                    return True
+                logger.warning(
+                    "Slack webhook returned %d on attempt %d/%d: %s",
+                    response.status_code,
+                    attempt + 1,
+                    _MAX_RETRIES,
+                    response.text[:200],
+                )
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "Slack webhook request failed on attempt %d/%d",
+                    attempt + 1,
+                    _MAX_RETRIES,
+                    exc_info=True,
+                )
 
-        if attempt < _MAX_RETRIES - 1:
-            delay = _BASE_DELAY * (2**attempt)
-            await asyncio.sleep(delay)
+            if attempt < _MAX_RETRIES - 1:
+                delay = _BASE_DELAY * (2**attempt)
+                await asyncio.sleep(delay)
 
-    logger.error("Failed to send Slack alert after %d attempts for alert_id=%s", _MAX_RETRIES, alert.id)
-    return False
+        logger.error("Failed to send Slack alert after %d attempts for alert_id=%s", _MAX_RETRIES, alert.id)
+        return False

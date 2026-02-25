@@ -6,6 +6,7 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import logfire
 from pydantic import BaseModel
 
 from src.database import get_db_connection
@@ -388,5 +389,6 @@ async def detect_and_store_alerts(project_id: str, run_id: str) -> list[str]:
 
     Returns the list of stored alert IDs.
     """
-    changes = await run_change_detection(project_id, run_id)
-    return await store_alerts(project_id, changes)
+    with logfire.span('change detection', project_id=project_id, run_id=run_id):
+        changes = await run_change_detection(project_id, run_id)
+        return await store_alerts(project_id, changes)

@@ -8,6 +8,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+import logfire
 from fastapi import APIRouter, HTTPException, Response
 
 from src.database import get_db_connection
@@ -228,6 +229,7 @@ async def trigger_monitoring(project_id: str) -> dict[str, str]:
             status_code=400,
             detail="No API key configured. Add your OpenRouter API key in Settings to run monitoring.",
         )
+    logfire.info('monitoring triggered', project_id=project_id, trigger='manual')
     task = asyncio.create_task(execute_monitoring_run(project_id, trigger_type="manual"))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)

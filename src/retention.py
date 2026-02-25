@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta
 
+import logfire
+
 from src.database import get_db_connection
 
 logger = logging.getLogger(__name__)
@@ -21,23 +23,24 @@ async def cleanup_old_responses(retention_days: int = DEFAULT_RETENTION_DAYS) ->
 
     Returns the number of cleaned rows.
     """
-    cutoff = (datetime.now(tz=UTC) - timedelta(days=retention_days)).isoformat()
-    cleaned = 0
+    with logfire.span('retention cleanup', retention_days=retention_days):
+        cutoff = (datetime.now(tz=UTC) - timedelta(days=retention_days)).isoformat()
+        cleaned = 0
 
-    try:
-        async with get_db_connection() as db:
-            cursor = await db.execute(
-                "UPDATE responses SET response_text = ''"
-                " WHERE created_at < ? AND error_message IS NULL AND response_text != ''",
-                (cutoff,),
-            )
-            cleaned = cursor.rowcount
-            await db.commit()
-    except Exception:
-        logger.exception("Failed to clean up old responses")
-        return 0
+        try:
+            async with get_db_connection() as db:
+                cursor = await db.execute(
+                    "UPDATE responses SET response_text = ''"
+                    " WHERE created_at < ? AND error_message IS NULL AND response_text != ''",
+                    (cutoff,),
+                )
+                cleaned = cursor.rowcount
+                await db.commit()
+        except Exception:
+            logger.exception("Failed to clean up old responses")
+            return 0
 
-    if cleaned > 0:
-        logger.info("Retention cleanup: cleared %d responses older than %d days", cleaned, retention_days)
+        if cleaned > 0:
+            logger.info("Retention cleanup: cleared %d responses older than %d days", cleaned, retention_days)
 
-    return cleaned
+        return cleaned

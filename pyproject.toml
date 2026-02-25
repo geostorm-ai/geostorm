@@ -15,6 +15,7 @@ dependencies = [
     "aiosmtplib",
     "pydantic-ai",
     "pydantic-settings>=2.13.1",
+    "logfire[fastapi,httpx]",
 ]
 
 [project.optional-dependencies]
@@ -74,6 +75,7 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ANN", "ARG", "PLR2004", "PLC0415"]
+"src/main.py" = ["E402"]
 
 [tool.mypy]
 strict = true
@@ -82,3 +84,4 @@ exclude = [".shotgun"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+filterwarnings = ["ignore::logfire._internal.config.LogfireNotConfiguredWarning"]

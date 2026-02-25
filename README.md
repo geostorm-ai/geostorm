@@ -163,6 +163,10 @@ pnpm astro check
 pnpm tsc --noEmit
 ```
 
+#### Structured Logging (Optional)
+
+GeoStorm uses [Logfire](https://logfire.pydantic.dev/) for structured logging. Console logs work out of the box with no extra setup. To also send telemetry to Logfire cloud during development, set `LOGFIRE_TOKEN` in your environment.
+
 ---
 
 ## FAQ

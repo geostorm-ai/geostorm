@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import aiosqlite
+import logfire
 
 from src.config import get_settings
 from src.demo_data import seed_demo_data
@@ -43,29 +44,30 @@ async def check_database_health() -> bool:
 
 async def initialize_database() -> None:
     """Create the data directory, apply migrations, and enable WAL mode."""
-    db_path = _get_db_path()
-    data_dir = Path(db_path).parent
-    data_dir.mkdir(parents=True, exist_ok=True)
+    with logfire.span('database initialization'):
+        db_path = _get_db_path()
+        data_dir = Path(db_path).parent
+        data_dir.mkdir(parents=True, exist_ok=True)
 
-    db = await aiosqlite.connect(db_path)
-    try:
-        await db.execute("PRAGMA journal_mode=WAL")
-        await db.execute("PRAGMA foreign_keys = ON")
+        db = await aiosqlite.connect(db_path)
+        try:
+            await db.execute("PRAGMA journal_mode=WAL")
+            await db.execute("PRAGMA foreign_keys = ON")
 
-        migration_file = _MIGRATIONS_DIR / "001_initial_schema.sql"
-        schema_sql = migration_file.read_text()
-        await db.executescript(schema_sql)
+            migration_file = _MIGRATIONS_DIR / "001_initial_schema.sql"
+            schema_sql = migration_file.read_text()
+            await db.executescript(schema_sql)
 
-        # executescript resets connection state, re-enable foreign keys
-        await db.execute("PRAGMA foreign_keys = ON")
-        await db.commit()
-        logger.info("Database initialized at %s", db_path)
+            # executescript resets connection state, re-enable foreign keys
+            await db.execute("PRAGMA foreign_keys = ON")
+            await db.commit()
+            logger.info("Database initialized at %s", db_path)
 
-        # Seed demo project on first startup if it doesn't exist
-        cursor = await db.execute("SELECT id FROM projects WHERE is_demo = 1")
-        demo_row = await cursor.fetchone()
-        if demo_row is None:
-            await seed_demo_data(db)
-            logger.info("Demo project seeded successfully")
-    finally:
-        await db.close()
+            # Seed demo project on first startup if it doesn't exist
+            cursor = await db.execute("SELECT id FROM projects WHERE is_demo = 1")
+            demo_row = await cursor.fetchone()
+            if demo_row is None:
+                await seed_demo_data(db)
+                logger.info("Demo project seeded successfully")
+        finally:
+            await db.close()

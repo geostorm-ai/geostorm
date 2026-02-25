@@ -7,6 +7,7 @@ import re
 import uuid
 from datetime import UTC, datetime
 
+import logfire
 from pydantic import BaseModel
 
 from src.database import get_db_connection
@@ -186,5 +187,6 @@ async def detect_and_store_mentions_for_response(
     Convenience wrapper that calls :func:`detect_mentions` followed by
     :func:`store_mentions`.  Returns the list of new mention IDs.
     """
-    detected = detect_mentions(response_text, brand_name, brand_aliases, competitors)
-    return await store_mentions(response_id, detected)
+    with logfire.span('mention detection', response_id=response_id):
+        detected = detect_mentions(response_text, brand_name, brand_aliases, competitors)
+        return await store_mentions(response_id, detected)

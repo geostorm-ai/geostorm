@@ -6,6 +6,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+import logfire
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import ValidationError
 
@@ -169,28 +170,29 @@ async def autofill_project(req: AutofillRequest) -> AutofillResponse:
     if not api_key:
         raise HTTPException(status_code=400, detail="No OpenRouter API key configured")
 
-    provider = OpenRouterProvider(api_key)
-    try:
-        response = await provider.send_prompt(
-            PromptRequest(
-                prompt=req.input,
-                model_id="google/gemini-2.0-flash-001",
-                system_prompt=_AUTOFILL_SYSTEM_PROMPT,
-                temperature=0.3,
-                response_format=_AUTOFILL_RESPONSE_FORMAT,
-            ),
-        )
-    except LLMProviderError as e:
-        logger.warning("Autofill LLM error: %s", e)
-        raise HTTPException(status_code=502, detail="AI service error") from e
-    finally:
-        await provider.close()
+    with logfire.span('autofill project', input=req.input):
+        provider = OpenRouterProvider(api_key)
+        try:
+            response = await provider.send_prompt(
+                PromptRequest(
+                    prompt=req.input,
+                    model_id="google/gemini-2.0-flash-001",
+                    system_prompt=_AUTOFILL_SYSTEM_PROMPT,
+                    temperature=0.3,
+                    response_format=_AUTOFILL_RESPONSE_FORMAT,
+                ),
+            )
+        except LLMProviderError as e:
+            logger.warning("Autofill LLM error: %s", e)
+            raise HTTPException(status_code=502, detail="AI service error") from e
+        finally:
+            await provider.close()
 
-    try:
-        data = AutofillLLMResponse.model_validate_json(response.text)
-    except ValidationError as e:
-        logger.warning("Autofill returned invalid JSON: %s", response.text[:200])
-        raise HTTPException(status_code=502, detail="AI returned invalid response") from e
+        try:
+            data = AutofillLLMResponse.model_validate_json(response.text)
+        except ValidationError as e:
+            logger.warning("Autofill returned invalid JSON: %s", response.text[:200])
+            raise HTTPException(status_code=502, detail="AI returned invalid response") from e
 
     return AutofillResponse(
         brand_name=data.brand_name,

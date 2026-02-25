@@ -7,6 +7,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import httpx
+import logfire
 
 if TYPE_CHECKING:
     from src.models import Alert
@@ -51,37 +52,38 @@ async def send_webhook_alert(alert: Alert, webhook_url: str, project_name: str) 
 
     Returns True on success, False on failure. Never raises.
     """
-    payload = _build_payload(alert, project_name)
-    headers = {
-        "Content-Type": "application/json",
-        "X-GeoStorm-Event": "alert",
-    }
+    with logfire.span('webhook notification', alert_id=alert.id):
+        payload = _build_payload(alert, project_name)
+        headers = {
+            "Content-Type": "application/json",
+            "X-GeoStorm-Event": "alert",
+        }
 
-    for attempt in range(_MAX_RETRIES):
-        try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-                response = await client.post(webhook_url, json=payload, headers=headers)
-            if 200 <= response.status_code < 300:  # noqa: PLR2004
-                logger.info("Webhook alert sent for alert_id=%s", alert.id)
-                return True
-            logger.warning(
-                "Webhook returned %d on attempt %d/%d: %s",
-                response.status_code,
-                attempt + 1,
-                _MAX_RETRIES,
-                response.text[:200],
-            )
-        except Exception:  # noqa: BLE001
-            logger.warning(
-                "Webhook request failed on attempt %d/%d",
-                attempt + 1,
-                _MAX_RETRIES,
-                exc_info=True,
-            )
+        for attempt in range(_MAX_RETRIES):
+            try:
+                async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                    response = await client.post(webhook_url, json=payload, headers=headers)
+                if 200 <= response.status_code < 300:  # noqa: PLR2004
+                    logger.info("Webhook alert sent for alert_id=%s", alert.id)
+                    return True
+                logger.warning(
+                    "Webhook returned %d on attempt %d/%d: %s",
+                    response.status_code,
+                    attempt + 1,
+                    _MAX_RETRIES,
+                    response.text[:200],
+                )
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "Webhook request failed on attempt %d/%d",
+                    attempt + 1,
+                    _MAX_RETRIES,
+                    exc_info=True,
+                )
 
-        if attempt < _MAX_RETRIES - 1:
-            delay = _BASE_DELAY * (2**attempt)
-            await asyncio.sleep(delay)
+            if attempt < _MAX_RETRIES - 1:
+                delay = _BASE_DELAY * (2**attempt)
+                await asyncio.sleep(delay)
 
-    logger.error("Failed to send webhook alert after %d attempts for alert_id=%s", _MAX_RETRIES, alert.id)
-    return False
+        logger.error("Failed to send webhook alert after %d attempts for alert_id=%s", _MAX_RETRIES, alert.id)
+        return False

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+import logfire
 from apscheduler import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import FastAPI
@@ -17,6 +18,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+logfire.configure(
+    send_to_logfire='if-token-present',
+    service_name='geostorm',
+    console=logfire.ConsoleOptions(
+        colors='auto',
+        span_style='show-parents',
+        include_timestamps=True,
+        min_log_level='info',
+    ),
+)
+logging.basicConfig(handlers=[logfire.LogfireLoggingHandler()], level=logging.INFO)
 
 from src.database import check_database_health, initialize_database
 from src.retention import cleanup_old_responses
@@ -49,7 +62,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Startup and shutdown lifecycle for GeoStorm."""
     global _scheduler  # noqa: PLW0603
 
-    await initialize_database()
+    with logfire.span('geostorm startup'):
+        await initialize_database()
 
     _scheduler = AsyncScheduler()
     async with _scheduler:
@@ -64,7 +78,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             id="retention_cleanup",
         )
         await _scheduler.start_in_background()
-        logger.info("GeoStorm started on port 8080")
+        logfire.info('GeoStorm started', port=8080)
 
         yield
 
@@ -85,6 +99,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+logfire.instrument_fastapi(app)
 
 app.include_router(projects_router)
 app.include_router(terms_router)

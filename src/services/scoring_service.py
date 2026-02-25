@@ -7,6 +7,7 @@ import uuid
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 
+import logfire
 from pydantic import BaseModel
 
 from src.database import get_db_connection
@@ -285,5 +286,6 @@ async def calculate_and_store_scores(run_id: str, project_id: str) -> list[str]:
 
     Returns the list of stored score IDs.
     """
-    scores = await calculate_run_scores(run_id, project_id)
-    return await store_scores(project_id, scores)
+    with logfire.span('score calculation', run_id=run_id, project_id=project_id):
+        scores = await calculate_run_scores(run_id, project_id)
+        return await store_scores(project_id, scores)

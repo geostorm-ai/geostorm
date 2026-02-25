@@ -15,6 +15,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+import logfire
+
 if TYPE_CHECKING:
     import aiosqlite
 
@@ -241,204 +243,205 @@ async def seed_demo_data(db: aiosqlite.Connection) -> None:
         logger.info("Demo project already exists, skipping seed")
         return
 
-    now = datetime.now(tz=UTC)
-    now_iso = _iso(now)
+    with logfire.span('seed demo data'):
+        now = datetime.now(tz=UTC)
+        now_iso = _iso(now)
 
-    # 90 calendar days back, filtered to business days ≈ ~64 business days
-    run_days = _business_days(now - timedelta(days=1), 64)
+        # 90 calendar days back, filtered to business days ≈ ~64 business days
+        run_days = _business_days(now - timedelta(days=1), 64)
 
-    # ------------------------------------------------------------------
-    # 1. Project
-    # ------------------------------------------------------------------
-    await db.execute(
-        "INSERT INTO projects (id, name, description, is_demo, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (
-            DEMO_PROJECT_ID,
-            "GeoStorm Demo: FastAPI",
-            "Demo project showing how GeoStorm monitors AI perception of FastAPI",
-            1,
-            _iso(run_days[0] - timedelta(days=1)),
-            now_iso,
-        ),
-    )
-
-    # ------------------------------------------------------------------
-    # 2. Brand
-    # ------------------------------------------------------------------
-    await db.execute(
-        "INSERT INTO brands (id, project_id, name, aliases_json, description, website, "
-        "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            _BRAND_ID,
-            DEMO_PROJECT_ID,
-            "FastAPI",
-            json.dumps(["FastAPI Python", "FastAPI framework"]),
-            "Modern, fast Python web framework for building APIs",
-            "https://fastapi.tiangolo.com",
-            _iso(run_days[0] - timedelta(days=1)),
-            now_iso,
-        ),
-    )
-
-    # ------------------------------------------------------------------
-    # 3. Competitors
-    # ------------------------------------------------------------------
-    for comp_name, comp_id in _COMPETITOR_IDS.items():
+        # ------------------------------------------------------------------
+        # 1. Project
+        # ------------------------------------------------------------------
         await db.execute(
-            "INSERT INTO competitors (id, project_id, name, aliases_json, website, "
-            "is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO projects (id, name, description, is_demo, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (
-                comp_id,
                 DEMO_PROJECT_ID,
-                comp_name,
-                "[]",
-                None,
+                "GeoStorm Demo: FastAPI",
+                "Demo project showing how GeoStorm monitors AI perception of FastAPI",
                 1,
                 _iso(run_days[0] - timedelta(days=1)),
                 now_iso,
             ),
         )
 
-    # ------------------------------------------------------------------
-    # 4. Terms
-    # ------------------------------------------------------------------
-    for term_name, term_id in _TERM_IDS.items():
+        # ------------------------------------------------------------------
+        # 2. Brand
+        # ------------------------------------------------------------------
         await db.execute(
-            "INSERT INTO project_terms (id, project_id, name, description, is_active, "
-            "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO brands (id, project_id, name, aliases_json, description, website, "
+            "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                term_id,
+                _BRAND_ID,
                 DEMO_PROJECT_ID,
-                term_name,
-                None,
-                1,
+                "FastAPI",
+                json.dumps(["FastAPI Python", "FastAPI framework"]),
+                "Modern, fast Python web framework for building APIs",
+                "https://fastapi.tiangolo.com",
                 _iso(run_days[0] - timedelta(days=1)),
                 now_iso,
             ),
         )
 
-    # ------------------------------------------------------------------
-    # 5. Schedule
-    # ------------------------------------------------------------------
-    await db.execute(
-        "INSERT INTO project_schedules (id, project_id, hour_of_day, days_of_week_json, "
-        "is_active, last_run_at, next_run_at, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            _SCHEDULE_ID,
-            DEMO_PROJECT_ID,
-            2,
-            "[0,1,2,3,4]",
-            1,
-            _iso(run_days[-1]),
-            None,
-            _iso(run_days[0] - timedelta(days=1)),
-            now_iso,
-        ),
-    )
+        # ------------------------------------------------------------------
+        # 3. Competitors
+        # ------------------------------------------------------------------
+        for comp_name, comp_id in _COMPETITOR_IDS.items():
+            await db.execute(
+                "INSERT INTO competitors (id, project_id, name, aliases_json, website, "
+                "is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    comp_id,
+                    DEMO_PROJECT_ID,
+                    comp_name,
+                    "[]",
+                    None,
+                    1,
+                    _iso(run_days[0] - timedelta(days=1)),
+                    now_iso,
+                ),
+            )
 
-    # ------------------------------------------------------------------
-    # 6. LLM Providers
-    # ------------------------------------------------------------------
-    for provider_name, model_name in _PROVIDERS:
-        pid = _PROVIDER_IDS[f"{provider_name}/{model_name}"]
-        await db.execute(
-            "INSERT INTO llm_providers (id, project_id, provider_name, model_name, "
-            "is_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                pid,
-                DEMO_PROJECT_ID,
-                provider_name,
-                model_name,
-                1,
-                _iso(run_days[0] - timedelta(days=1)),
-                now_iso,
-            ),
-        )
-
-    # ------------------------------------------------------------------
-    # 7. Runs, Responses, Mentions
-    # ------------------------------------------------------------------
-    response_idx = 0
-
-    for day_idx, run_day in enumerate(run_days):
-        run_time = run_day.replace(hour=2, minute=0, second=0, microsecond=0)
-        run_id = _uuid(f"run-{day_idx}")
-        total_queries = len(_TERM_IDS) * len(_PROVIDERS)
-
-        await db.execute(
-            "INSERT INTO runs (id, project_id, status, trigger_type, triggered_by, "
-            "total_queries, completed_queries, failed_queries, scheduled_for, "
-            "started_at, completed_at, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                run_id,
-                DEMO_PROJECT_ID,
-                "completed",
-                "scheduled",
-                None,
-                total_queries,
-                total_queries,
-                0,
-                _iso(run_time),
-                _iso(run_time),
-                _iso(run_time + timedelta(seconds=45)),
-                _iso(run_time),
-            ),
-        )
-
+        # ------------------------------------------------------------------
+        # 4. Terms
+        # ------------------------------------------------------------------
         for term_name, term_id in _TERM_IDS.items():
-            templates = _RESPONSE_TEMPLATES[term_name]
+            await db.execute(
+                "INSERT INTO project_terms (id, project_id, name, description, is_active, "
+                "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    term_id,
+                    DEMO_PROJECT_ID,
+                    term_name,
+                    None,
+                    1,
+                    _iso(run_days[0] - timedelta(days=1)),
+                    now_iso,
+                ),
+            )
 
-            for provider_name, model_name in _PROVIDERS:
-                response_id = _uuid(f"resp-{response_idx}")
-                response_idx += 1
+        # ------------------------------------------------------------------
+        # 5. Schedule
+        # ------------------------------------------------------------------
+        await db.execute(
+            "INSERT INTO project_schedules (id, project_id, hour_of_day, days_of_week_json, "
+            "is_active, last_run_at, next_run_at, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                _SCHEDULE_ID,
+                DEMO_PROJECT_ID,
+                2,
+                "[0,1,2,3,4]",
+                1,
+                _iso(run_days[-1]),
+                None,
+                _iso(run_days[0] - timedelta(days=1)),
+                now_iso,
+            ),
+        )
 
-                # Pick template based on day and provider for variation
-                template_idx = (day_idx + _stable_hash(model_name)) % len(templates)
-                response_text = templates[template_idx]
+        # ------------------------------------------------------------------
+        # 6. LLM Providers
+        # ------------------------------------------------------------------
+        for provider_name, model_name in _PROVIDERS:
+            pid = _PROVIDER_IDS[f"{provider_name}/{model_name}"]
+            await db.execute(
+                "INSERT INTO llm_providers (id, project_id, provider_name, model_name, "
+                "is_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    pid,
+                    DEMO_PROJECT_ID,
+                    provider_name,
+                    model_name,
+                    1,
+                    _iso(run_days[0] - timedelta(days=1)),
+                    now_iso,
+                ),
+            )
 
-                latency = 800 + (_stable_hash(f"{day_idx}-{model_name}") % 2000)
+        # ------------------------------------------------------------------
+        # 7. Runs, Responses, Mentions
+        # ------------------------------------------------------------------
+        response_idx = 0
 
-                await db.execute(
-                    "INSERT INTO responses (id, run_id, project_id, term_id, "
-                    "provider_name, model_name, response_text, latency_ms, "
-                    "token_count_prompt, token_count_completion, cost_usd, "
-                    "error_message, created_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        response_id,
-                        run_id,
-                        DEMO_PROJECT_ID,
-                        term_id,
-                        provider_name,
-                        model_name,
-                        response_text,
-                        latency,
-                        150,
-                        400,
-                        0.005,
-                        None,
-                        _iso(run_time + timedelta(seconds=latency / 1000)),
-                    ),
-                )
+        for day_idx, run_day in enumerate(run_days):
+            run_time = run_day.replace(hour=2, minute=0, second=0, microsecond=0)
+            run_id = _uuid(f"run-{day_idx}")
+            total_queries = len(_TERM_IDS) * len(_PROVIDERS)
 
-                # Detect mentions in the response text
-                await _seed_mentions(db, response_id, response_text, run_time)
+            await db.execute(
+                "INSERT INTO runs (id, project_id, status, trigger_type, triggered_by, "
+                "total_queries, completed_queries, failed_queries, scheduled_for, "
+                "started_at, completed_at, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    run_id,
+                    DEMO_PROJECT_ID,
+                    "completed",
+                    "scheduled",
+                    None,
+                    total_queries,
+                    total_queries,
+                    0,
+                    _iso(run_time),
+                    _iso(run_time),
+                    _iso(run_time + timedelta(seconds=45)),
+                    _iso(run_time),
+                ),
+            )
 
-    # ------------------------------------------------------------------
-    # 8. Perception Scores (daily aggregates over 90 days)
-    # ------------------------------------------------------------------
-    await _seed_perception_scores(db, run_days)
+            for term_name, term_id in _TERM_IDS.items():
+                templates = _RESPONSE_TEMPLATES[term_name]
 
-    # ------------------------------------------------------------------
-    # 9. Alerts
-    # ------------------------------------------------------------------
-    await _seed_alerts(db, run_days)
+                for provider_name, model_name in _PROVIDERS:
+                    response_id = _uuid(f"resp-{response_idx}")
+                    response_idx += 1
 
-    await db.commit()
-    logger.info("Demo project '%s' seeded with %d days of data", DEMO_PROJECT_ID, len(run_days))
+                    # Pick template based on day and provider for variation
+                    template_idx = (day_idx + _stable_hash(model_name)) % len(templates)
+                    response_text = templates[template_idx]
+
+                    latency = 800 + (_stable_hash(f"{day_idx}-{model_name}") % 2000)
+
+                    await db.execute(
+                        "INSERT INTO responses (id, run_id, project_id, term_id, "
+                        "provider_name, model_name, response_text, latency_ms, "
+                        "token_count_prompt, token_count_completion, cost_usd, "
+                        "error_message, created_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            response_id,
+                            run_id,
+                            DEMO_PROJECT_ID,
+                            term_id,
+                            provider_name,
+                            model_name,
+                            response_text,
+                            latency,
+                            150,
+                            400,
+                            0.005,
+                            None,
+                            _iso(run_time + timedelta(seconds=latency / 1000)),
+                        ),
+                    )
+
+                    # Detect mentions in the response text
+                    await _seed_mentions(db, response_id, response_text, run_time)
+
+        # ------------------------------------------------------------------
+        # 8. Perception Scores (daily aggregates over 90 days)
+        # ------------------------------------------------------------------
+        await _seed_perception_scores(db, run_days)
+
+        # ------------------------------------------------------------------
+        # 9. Alerts
+        # ------------------------------------------------------------------
+        await _seed_alerts(db, run_days)
+
+        await db.commit()
+        logger.info("Demo project '%s' seeded with %d days of data", DEMO_PROJECT_ID, len(run_days))
 
 
 async def _seed_mentions(
