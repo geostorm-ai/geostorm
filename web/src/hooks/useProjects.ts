@@ -51,6 +51,23 @@ export function useUpdateProject(projectId: string) {
 	})
 }
 
+export function useDeleteProject(projectId: string) {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: () => apiFetch(`/projects/${projectId}`, { method: "DELETE" }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["projects"] })
+			toast.success("Project deleted")
+			window.location.href = "/projects"
+		},
+		onError: (error) => {
+			toast.error("Failed to delete project", {
+				description: error instanceof Error ? error.message : "Unknown error",
+			})
+		},
+	})
+}
+
 export function useTriggerMonitoring(projectId: string) {
 	const queryClient = useQueryClient()
 	return useMutation({

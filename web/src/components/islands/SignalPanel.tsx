@@ -64,15 +64,20 @@ function LoadingSkeleton() {
 
 export function SignalPanel({ projectId }: SignalPanelProps) {
 	const {
-		data: perception,
-		isLoading: perceptionLoading,
-		error: perceptionError,
-	} = usePerception(projectId)
-	const {
 		data: runsData,
 		isLoading: runsLoading,
 		error: runsError,
 	} = useRuns(projectId, { limit: 3, enablePolling: true })
+
+	const hasRunningRuns = runsData?.items.some(
+		(run) => run.status === "running" || run.status === "pending",
+	) ?? false
+
+	const {
+		data: perception,
+		isLoading: perceptionLoading,
+		error: perceptionError,
+	} = usePerception(projectId, { enablePolling: hasRunningRuns })
 
 	const isLoading = perceptionLoading || runsLoading
 	const error = perceptionError || runsError

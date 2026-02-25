@@ -4,10 +4,11 @@ import { ProvidersManager } from "@/components/islands/ProvidersManager"
 import { RunsTable } from "@/components/islands/RunsTable"
 import { ScheduleEditor } from "@/components/islands/ScheduleEditor"
 import { TermsManager } from "@/components/islands/TermsManager"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useProject } from "@/hooks/useProjects"
+import { useDeleteProject, useProject } from "@/hooks/useProjects"
 
 interface ProjectTabsProps {
 	projectId: string
@@ -16,6 +17,13 @@ interface ProjectTabsProps {
 
 export function ProjectTabs({ projectId, isDemo }: ProjectTabsProps) {
 	const { data: project, isLoading } = useProject(projectId)
+	const deleteProject = useDeleteProject(projectId)
+
+	function handleDelete() {
+		if (window.confirm("Are you sure you want to delete this project? This cannot be undone.")) {
+			deleteProject.mutate()
+		}
+	}
 
 	return (
 		<Tabs defaultValue="overview" className="space-y-4">
@@ -71,7 +79,7 @@ export function ProjectTabs({ projectId, isDemo }: ProjectTabsProps) {
 											Description
 										</p>
 										<p className="text-sm">
-											{project.brand?.description ?? "No description"}
+											{project.description ?? "No description"}
 										</p>
 									</div>
 									<div>
@@ -92,6 +100,25 @@ export function ProjectTabs({ projectId, isDemo }: ProjectTabsProps) {
 							</CardContent>
 						</Card>
 						<BrandEditor projectId={projectId} isDemo={isDemo} />
+						{!isDemo && (
+							<Card className="border-destructive/50">
+								<CardHeader>
+									<CardTitle className="text-destructive">Danger Zone</CardTitle>
+								</CardHeader>
+								<CardContent className="flex items-center justify-between">
+									<p className="text-sm text-muted-foreground">
+										Permanently delete this project and all its data.
+									</p>
+									<Button
+										variant="destructive"
+										onClick={handleDelete}
+										disabled={deleteProject.isPending}
+									>
+										{deleteProject.isPending ? "Deleting..." : "Delete Project"}
+									</Button>
+								</CardContent>
+							</Card>
+						)}
 					</div>
 				) : null}
 			</TabsContent>

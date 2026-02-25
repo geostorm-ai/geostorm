@@ -131,6 +131,7 @@ class ProjectDetailResponse(BaseModel):
     is_demo: bool = False
     created_at: datetime
     updated_at: datetime
+    run_count: int = 0
     brand: BrandResponse | None = None
     competitors: list[CompetitorResponse] = Field(default_factory=list)
     terms: list[TermResponse] = Field(default_factory=list)
