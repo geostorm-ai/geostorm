@@ -3,6 +3,7 @@
 qa-screenshots/
 tmp/
 QA-screenshots/
+playground/
 # Python
 __pycache__/
 *.py[cod]

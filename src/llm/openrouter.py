@@ -39,6 +39,8 @@ def _build_payload(request: PromptRequest, messages: list[dict[str, str]]) -> di
         payload["max_tokens"] = request.max_tokens
     if request.temperature is not None:
         payload["temperature"] = request.temperature
+    if request.response_format is not None:
+        payload["response_format"] = request.response_format
     return payload
 
 

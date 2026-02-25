@@ -27,6 +27,7 @@ class PromptRequest(BaseModel):
     max_tokens: int | None = None
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     system_prompt: str | None = None
+    response_format: dict[str, object] | None = None
 
 
 class PromptResponse(BaseModel):

@@ -412,6 +412,16 @@ class ApiKeyStatusResponse(BaseModel):
     source: str | None = None
 
 
+class AutofillLLMResponse(BaseModel):
+    """Structured output expected from the autofill LLM call."""
+
+    brand_name: str
+    brand_aliases: list[str]
+    description: str
+    competitors: list[str]
+    monitoring_terms: list[str]
+
+
 class AutofillRequest(BaseModel):
     """Request to autofill project details via AI."""
 
