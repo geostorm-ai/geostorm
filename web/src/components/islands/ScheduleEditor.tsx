@@ -123,6 +123,7 @@ export function ScheduleEditor({ projectId, isDemo }: ScheduleEditorProps) {
 							))}
 						</SelectContent>
 					</Select>
+					<p className="text-xs text-muted-foreground">Times are in UTC</p>
 				</div>
 
 				<div className="space-y-2">

@@ -164,7 +164,12 @@ export function SetupWizard() {
 				}),
 			})
 
-			// 5. Redirect on success
+			// 5. Auto-trigger first monitoring run
+			apiFetch(`/projects/${projectId}/monitor`, { method: "POST" }).catch(() => {
+				// Non-blocking — if it fails, user can trigger manually
+			})
+
+			// 6. Redirect on success
 			window.location.href = `/projects/${projectId}`
 		} catch (err) {
 			// If project was created but a later step failed, redirect anyway
@@ -303,13 +308,13 @@ export function SetupWizard() {
 					</CardHeader>
 					<CardContent className="space-y-4">
 						<p className="text-sm text-muted-foreground">
-							Add the search terms you want to monitor. These are the queries
-							users ask AI assistants.
+							What would someone ask ChatGPT or Claude when looking for a tool
+							like yours? Add those queries below.
 						</p>
 
 						<div className="flex gap-2">
 							<Input
-								placeholder="e.g. best project management tools"
+								placeholder="e.g. best tool for [your category]"
 								value={termInput}
 								onChange={(e) => setTermInput(e.target.value)}
 								onKeyDown={(e) => {
@@ -352,9 +357,19 @@ export function SetupWizard() {
 						)}
 
 						{terms.length === 0 && (
-							<p className="text-sm text-muted-foreground italic">
-								Add at least one monitoring term to continue.
-							</p>
+							<div className="space-y-2">
+								<p className="text-sm text-muted-foreground italic">
+									Add at least one monitoring term to continue.
+								</p>
+								<div className="rounded-md border border-dashed p-3">
+									<p className="text-xs font-medium text-muted-foreground mb-1">Example queries:</p>
+									<ul className="text-xs text-muted-foreground space-y-1">
+										<li>"best [your category] tools"</li>
+										<li>"[your brand] vs [competitor] comparison"</li>
+										<li>"what is the best alternative to [competitor]"</li>
+									</ul>
+								</div>
+							</div>
 						)}
 
 						<div className="flex justify-between pt-4">
@@ -393,6 +408,7 @@ export function SetupWizard() {
 									))}
 								</SelectContent>
 							</Select>
+							<p className="text-xs text-muted-foreground">Times are in UTC</p>
 						</div>
 
 						<div className="space-y-3">
@@ -415,6 +431,11 @@ export function SetupWizard() {
 								))}
 							</div>
 						</div>
+
+						<p className="text-sm text-muted-foreground">
+							We'll monitor using 3 default AI models (Claude, GPT, Gemini) via OpenRouter.
+							You can customize providers after setup.
+						</p>
 
 						{submitError && (
 							<p className="text-sm text-destructive">{submitError}</p>

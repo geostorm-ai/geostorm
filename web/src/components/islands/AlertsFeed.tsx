@@ -10,6 +10,7 @@ import type { Alert, AlertSeverity } from "@/schemas/alert"
 
 interface AlertsFeedProps {
 	projectId: string
+	runCount?: number
 }
 
 const SEVERITY_ORDER: Record<AlertSeverity, number> = {
@@ -85,7 +86,7 @@ function LoadingSkeleton() {
 	)
 }
 
-export function AlertsFeed({ projectId }: AlertsFeedProps) {
+export function AlertsFeed({ projectId, runCount }: AlertsFeedProps) {
 	const { data, isLoading, error } = useAlerts(projectId, {
 		acknowledged: false,
 	})
@@ -148,8 +149,20 @@ export function AlertsFeed({ projectId }: AlertsFeedProps) {
 								<polyline points="22 4 12 14.01 9 11.01" />
 							</svg>
 						}
-						title="No active alerts"
-						description="Perception is stable — no issues detected."
+						title={
+							runCount === undefined || runCount >= 2
+								? "No active alerts"
+								: runCount === 0
+									? "No monitoring data yet"
+									: "Establishing baseline"
+						}
+						description={
+							runCount === undefined || runCount >= 2
+								? "Perception is stable — no issues detected."
+								: runCount === 0
+									? "Run your first monitor to establish a baseline."
+									: "Alerts will appear after the next monitoring run detects changes."
+						}
 					/>
 				)}
 

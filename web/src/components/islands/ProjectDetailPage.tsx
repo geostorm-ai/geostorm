@@ -6,6 +6,7 @@ import { PerceptionChart } from "./PerceptionChart"
 import { ProjectTabs } from "./ProjectTabs"
 import { SignalPanel } from "./SignalPanel"
 import { apiFetch } from "@/lib/api"
+import { useRuns } from "@/hooks/useRuns"
 import type { ProjectDetail } from "@/schemas/project"
 
 function DemoBanner() {
@@ -92,6 +93,9 @@ function ProjectDetailPageInner() {
 		)
 	}
 
+	const { data: runsData } = useRuns(id, { limit: 1, enablePolling: true })
+	const runCount = runsData?.total
+
 	return (
 		<>
 			{project.is_demo && <DemoBanner />}
@@ -110,7 +114,7 @@ function ProjectDetailPageInner() {
 					<MonitorButton projectId={id} isDemo={project.is_demo} />
 				</div>
 
-				<AlertsFeed projectId={id} />
+				<AlertsFeed projectId={id} runCount={runCount} />
 				<div className="mt-6">
 					<SignalPanel projectId={id} />
 				</div>

@@ -39,6 +39,8 @@ async def list_projects() -> list[ProjectResponse]:
                 (SELECT ps.overall_score
                  FROM perception_scores ps
                  WHERE ps.project_id = p.id
+                   AND ps.term_id IS NULL
+                   AND ps.provider_name IS NULL
                  ORDER BY ps.created_at DESC LIMIT 1) as latest_score,
                 (SELECT COUNT(*) FROM runs r WHERE r.project_id = p.id) as run_count,
                 (SELECT COUNT(*) FROM alerts a
@@ -118,6 +120,12 @@ async def get_project(project_id: str) -> ProjectDetailResponse:
 
     async with get_db_connection() as db:
         cursor = await db.execute(
+            "SELECT COUNT(*) FROM runs WHERE project_id = ?", (project_id,),
+        )
+        row = await cursor.fetchone()
+        run_count = row[0] if row else 0
+
+        cursor = await db.execute(
             "SELECT * FROM brands WHERE project_id = ?", (project_id,),
         )
         brand_row = await cursor.fetchone()
@@ -157,6 +165,7 @@ async def get_project(project_id: str) -> ProjectDetailResponse:
 
     return ProjectDetailResponse(
         **dict(project),
+        run_count=run_count,
         brand=brand,
         competitors=competitors,
         terms=terms,
