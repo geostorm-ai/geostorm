@@ -84,11 +84,7 @@ To start monitoring your own software:
 
 **1. Get an API key** at [OpenRouter](https://openrouter.ai/) -- one key gives you access to multiple AI models.
 
-**2. Restart with your key:**
-
-```bash
-docker run -d -p 8080:8080 -v geostorm-data:/app/data -e OPENROUTER_API_KEY=sk-or-v1-... --name geostorm ghcr.io/geostorm-ai/geostorm
-```
+**2. Add your key** in the GeoStorm UI settings page.
 
 **3. Create a project** in the UI and GeoStorm starts monitoring on a schedule.
 
