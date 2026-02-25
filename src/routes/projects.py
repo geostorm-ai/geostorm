@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Response
 
 from src.database import get_db_connection
+from src.llm.factory import get_available_providers
 from src.routes.deps import get_project_or_404, get_writable_project_or_403
 from src.scheduler import execute_monitoring_run
 from src.schemas import (
@@ -221,6 +222,12 @@ async def delete_project(project_id: str) -> Response:
 @router.post("/projects/{project_id}/monitor", status_code=202)
 async def trigger_monitoring(project_id: str) -> dict[str, str]:
     await get_writable_project_or_403(project_id)
+    available = await get_available_providers()
+    if not available:
+        raise HTTPException(
+            status_code=400,
+            detail="No API key configured. Add your OpenRouter API key in Settings to run monitoring.",
+        )
     task = asyncio.create_task(execute_monitoring_run(project_id, trigger_type="manual"))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
