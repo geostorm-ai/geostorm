@@ -49,7 +49,13 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 										: "border border-border text-muted-foreground"
 							}`}
 						>
-							{step}
+							{isCompleted ? (
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+									<polyline points="20 6 9 17 4 12" />
+								</svg>
+							) : (
+								step
+							)}
 						</div>
 					</div>
 				)
@@ -83,6 +89,8 @@ export function SetupWizard() {
 	// Submission state
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [submitError, setSubmitError] = useState<string | null>(null)
+	const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
+	const [monitorTriggered, setMonitorTriggered] = useState(false)
 
 	function addCompetitor() {
 		const name = competitorInput.trim()
@@ -165,12 +173,16 @@ export function SetupWizard() {
 			})
 
 			// 5. Auto-trigger first monitoring run
-			apiFetch(`/projects/${projectId}/monitor`, { method: "POST" }).catch(() => {
-				// Non-blocking — if it fails, user can trigger manually
-			})
+			apiFetch(`/projects/${projectId}/monitor`, { method: "POST" })
+				.then(() => setMonitorTriggered(true))
+				.catch(() => {
+					// Non-blocking — if it fails, user can trigger manually
+				})
 
-			// 6. Redirect on success
-			window.location.href = `/projects/${projectId}`
+			// 6. Show confirmation step
+			setCreatedProjectId(projectId)
+			setStep(4)
+			setIsSubmitting(false)
 		} catch (err) {
 			// If project was created but a later step failed, redirect anyway
 			// so the user can fix the remaining config from the project page
@@ -193,7 +205,7 @@ export function SetupWizard() {
 
 	return (
 		<div>
-			<StepIndicator current={step} total={3} />
+			<StepIndicator current={step} total={4} />
 
 			{step === 1 && (
 				<Card>
@@ -451,6 +463,71 @@ export function SetupWizard() {
 							</Button>
 							<Button onClick={handleSubmit} disabled={isSubmitting}>
 								{isSubmitting ? "Creating Project..." : "Create Project"}
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
+			)}
+
+			{step === 4 && createdProjectId && (
+				<Card>
+					<CardContent className="py-10">
+						<div className="flex flex-col items-center text-center space-y-6">
+							<div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+								<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8 text-green-600 dark:text-green-400">
+									<polyline points="20 6 9 17 4 12" />
+								</svg>
+							</div>
+							<div>
+								<h2 className="text-xl font-semibold">Project Created</h2>
+								<p className="mt-1 text-sm text-muted-foreground">
+									Your monitoring project is set up and ready to go.
+								</p>
+							</div>
+
+							<div className="w-full max-w-md rounded-lg border bg-muted/30 p-4">
+								<div className="grid grid-cols-2 gap-3 text-sm">
+									<div className="text-left">
+										<span className="text-muted-foreground">Project</span>
+										<p className="font-medium">{projectName}</p>
+									</div>
+									<div className="text-left">
+										<span className="text-muted-foreground">Brand</span>
+										<p className="font-medium">{brandName}</p>
+									</div>
+									<div className="text-left">
+										<span className="text-muted-foreground">Competitors</span>
+										<p className="font-medium">{competitors.length}</p>
+									</div>
+									<div className="text-left">
+										<span className="text-muted-foreground">Terms</span>
+										<p className="font-medium">{terms.length}</p>
+									</div>
+									<div className="col-span-2 text-left">
+										<span className="text-muted-foreground">Schedule</span>
+										<p className="font-medium">
+											{formatHour(hour)} on{" "}
+											{days.length === 7
+												? "every day"
+												: days.map((d) => DAY_NAMES[d]).join(", ")}
+										</p>
+									</div>
+								</div>
+							</div>
+
+							<Badge
+								variant="secondary"
+								className={
+									monitorTriggered
+										? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+										: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+								}
+							>
+								{monitorTriggered ? "First scan running" : "Queuing first scan..."}
+							</Badge>
+
+							<Button asChild className="mt-2">
+								<a href={`/projects/${createdProjectId}`}>Go to Project</a>
 							</Button>
 						</div>
 					</CardContent>

@@ -121,7 +121,7 @@ function ProjectDetailPageInner() {
 				<div className="mt-6">
 					<ProjectTabs projectId={id} isDemo={project.is_demo} />
 				</div>
-				<PerceptionChart projectId={id} />
+				<PerceptionChart projectId={id} runCount={runCount} />
 			</div>
 		</>
 	)

@@ -9,13 +9,16 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts"
+import { EmptyState } from "@/components/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePerception } from "@/hooks/usePerception"
+import { LineChart as LineChartIcon } from "lucide-react"
 
 interface PerceptionChartProps {
 	projectId: string
+	runCount?: number
 }
 
 const RANGE_OPTIONS = [
@@ -57,7 +60,7 @@ function LoadingSkeleton() {
 	)
 }
 
-export function PerceptionChart({ projectId }: PerceptionChartProps) {
+export function PerceptionChart({ projectId, runCount }: PerceptionChartProps) {
 	const [rangeDays, setRangeDays] = useState(30)
 
 	const { startDate, endDate } = useMemo(
@@ -111,9 +114,23 @@ export function PerceptionChart({ projectId }: PerceptionChartProps) {
 				)}
 
 				{!isLoading && !error && chartData.length === 0 && (
-					<p className="py-12 text-center text-sm text-muted-foreground">
-						No perception data available for this period.
-					</p>
+					<EmptyState
+						icon={<LineChartIcon className="h-10 w-10" />}
+						title={
+							!runCount
+								? "No monitoring data yet"
+								: runCount === 1
+									? "Baseline established"
+									: "No data for this period"
+						}
+						description={
+							!runCount
+								? "Charts will appear after your first scan."
+								: runCount === 1
+									? "Trends will appear after your next scan."
+									: "Try selecting a different date range."
+						}
+					/>
 				)}
 
 				{!isLoading && !error && chartData.length > 0 && (

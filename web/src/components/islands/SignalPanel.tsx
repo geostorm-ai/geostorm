@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/EmptyState"
 import { ScoreDisplay } from "@/components/ScoreDisplay"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -6,6 +7,7 @@ import { usePerception } from "@/hooks/usePerception"
 import { useRuns } from "@/hooks/useRuns"
 import { cn } from "@/lib/utils"
 import { getRunDisplay } from "@/lib/runs"
+import { BarChart3 } from "lucide-react"
 import type { Run } from "@/schemas/run"
 
 interface SignalPanelProps {
@@ -87,6 +89,7 @@ export function SignalPanel({ projectId }: SignalPanelProps) {
 			? perception.data[perception.data.length - 1]
 			: null
 
+	const runCount = runsData?.total ?? 0
 	const runs = runsData?.items ?? []
 
 	if (isLoading) {
@@ -123,31 +126,47 @@ export function SignalPanel({ projectId }: SignalPanelProps) {
 				<CardTitle className="text-lg">Perception Overview</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-6">
-				<ScoreDisplay
-					label="Overall Perception Score"
-					value={latestPoint?.overall_score ?? null}
-					format="score"
-					trend={latestPoint?.trend_direction}
-					className="text-center"
-				/>
+				{runCount === 0 ? (
+					<EmptyState
+						icon={<BarChart3 className="h-10 w-10" />}
+						title="No monitoring data yet"
+						description="Your first scan is on its way. Scores and trends will appear here once it completes."
+					/>
+				) : (
+					<>
+						<ScoreDisplay
+							label="Overall Perception Score"
+							value={latestPoint?.overall_score ?? null}
+							format="score"
+							trend={latestPoint?.trend_direction}
+							className="text-center"
+						/>
 
-				<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-					<ScoreDisplay
-						label="Recommendation Share"
-						value={latestPoint?.recommendation_share ?? null}
-						format="percent"
-					/>
-					<ScoreDisplay
-						label="Avg. Position"
-						value={latestPoint?.position_avg ?? null}
-						format="number"
-					/>
-					<ScoreDisplay
-						label="Competitor Delta"
-						value={latestPoint?.competitor_delta ?? null}
-						format="score"
-					/>
-				</div>
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+							<ScoreDisplay
+								label="Recommendation Share"
+								value={latestPoint?.recommendation_share ?? null}
+								format="percent"
+							/>
+							<ScoreDisplay
+								label="Avg. Position"
+								value={latestPoint?.position_avg ?? null}
+								format="number"
+							/>
+							<ScoreDisplay
+								label="Competitor Delta"
+								value={latestPoint?.competitor_delta ?? null}
+								format="score"
+							/>
+						</div>
+
+						{runCount === 1 && (
+							<p className="text-center text-xs text-muted-foreground">
+								Baseline established. Trends will appear after your next scan.
+							</p>
+						)}
+					</>
+				)}
 
 				<div>
 					<h3 className="mb-3 text-sm font-semibold text-muted-foreground">

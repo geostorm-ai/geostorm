@@ -1,3 +1,5 @@
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -60,9 +62,11 @@ export function ResponseViewer({ runId }: ResponseViewerProps) {
 						{response.error_message ? (
 							<p className="text-sm text-destructive">{response.error_message}</p>
 						) : (
-							<p className="whitespace-pre-wrap text-sm">
-								{response.response_text}
-							</p>
+							<div className="prose prose-sm dark:prose-invert max-w-none overflow-x-auto">
+								<ReactMarkdown remarkPlugins={[remarkGfm]}>
+									{response.response_text}
+								</ReactMarkdown>
+							</div>
 						)}
 						{response.mentions.length > 0 && (
 							<div className="flex flex-wrap gap-1.5">
