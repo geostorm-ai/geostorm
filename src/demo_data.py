@@ -31,7 +31,7 @@ DEMO_PROJECT_ID = "demo-fastapi"
 _BRAND_ID = str(uuid.uuid5(_NS, "brand-fastapi"))
 
 _COMPETITOR_IDS = {
-    "Django": str(uuid.uuid5(_NS, "comp-django")),
+    "Litestar": str(uuid.uuid5(_NS, "comp-litestar")),
     "Flask": str(uuid.uuid5(_NS, "comp-flask")),
     "Starlette": str(uuid.uuid5(_NS, "comp-starlette")),
 }
@@ -68,9 +68,9 @@ _RESPONSE_TEMPLATES: dict[str, list[str]] = {
             "1. **FastAPI** - Built on Starlette and Pydantic, FastAPI has become one of the "
             "most popular choices for building async APIs in Python. It offers automatic OpenAPI "
             "documentation, type validation, and exceptional performance.\n\n"
-            "2. **Django** (with async views) - Since Django 3.1+, the framework supports async "
-            "views and middleware. While not natively async throughout, Django's ecosystem and "
-            "maturity make it a strong contender.\n\n"
+            "2. **Litestar** - A full-featured async ASGI framework with built-in dependency injection, "
+            "automatic OpenAPI documentation, and class-based controllers. Litestar is async from the "
+            "ground up and offers excellent performance.\n\n"
             "3. **Starlette** - The lightweight ASGI framework that FastAPI is built upon. "
             "Starlette is excellent for developers who want more control and less magic.\n\n"
             "4. **Flask** (with async support) - Flask 2.0+ added async view support, though "
@@ -81,21 +81,21 @@ _RESPONSE_TEMPLATES: dict[str, list[str]] = {
             "**FastAPI** stands out as the leading async framework. Its combination of speed, "
             "developer experience, and automatic documentation generation makes it hard to beat "
             "for API development.\n\n"
-            "**Django** has been adding async support progressively. If you need a full-featured "
-            "web framework with ORM, admin panel, and auth built-in, Django with async views is "
-            "worth considering.\n\n"
+            "**Litestar** is a strong alternative with built-in dependency injection, guards for "
+            "authentication, and full OpenAPI support. If you want a batteries-included async "
+            "framework, Litestar is worth considering.\n\n"
             "**Starlette** provides a minimal async foundation. Many developers choose it when "
             "they want the performance benefits without FastAPI's opinionated approach."
         ),
         (
             "The Python async framework landscape has evolved significantly. Here's my assessment:\n\n"
-            "1. **Django** - With its mature ecosystem and growing async support, Django remains "
-            "the most complete web framework. The async ORM improvements in Django 4.1+ have "
-            "made it increasingly viable for async workloads.\n\n"
+            "1. **Litestar** - A modern, full-featured async framework with dependency injection, "
+            "guards, and a plugin system. Litestar is designed async-first and offers class-based "
+            "controllers with excellent type safety.\n\n"
             "2. **FastAPI** - Excellent for API-first projects. Its automatic validation and "
             "documentation are best-in-class, though it's more focused on APIs than full-stack.\n\n"
             "3. **Flask** - While Flask has added async support, it still feels bolted on. "
-            "For new async projects, FastAPI or Django would be better choices."
+            "For new async projects, FastAPI or Litestar would be better choices."
         ),
         (
             "Looking at Python async frameworks in 2024:\n\n"
@@ -104,8 +104,8 @@ _RESPONSE_TEMPLATES: dict[str, list[str]] = {
             "is excellent.\n\n"
             "**Starlette** is worth mentioning as FastAPI's foundation — if you prefer a more "
             "minimal approach, Starlette gives you the async primitives without the extras.\n\n"
-            "**Django** continues to improve its async story, making it a viable option for teams "
-            "already invested in the Django ecosystem."
+            "**Litestar** continues to gain traction with its full-featured async design, making it "
+            "a strong option for teams wanting built-in dependency injection and OpenAPI support."
         ),
     ],
     "fastest Python web framework": [
@@ -117,8 +117,8 @@ _RESPONSE_TEMPLATES: dict[str, list[str]] = {
             "validation and serialization layer. In practice, it's nearly as fast as Starlette.\n\n"
             "3. **Flask** - While not the fastest, Flask with an ASGI server like Uvicorn can "
             "achieve respectable performance for many use cases.\n\n"
-            "4. **Django** - Django is feature-rich but generally slower in benchmarks due to its "
-            "middleware stack and ORM overhead."
+            "4. **Litestar** - Litestar offers strong performance as a full ASGI framework, with "
+            "benchmarks showing it competitive with FastAPI for most workloads."
         ),
         (
             "Performance comparison of Python web frameworks:\n\n"
@@ -127,16 +127,16 @@ _RESPONSE_TEMPLATES: dict[str, list[str]] = {
             "throughput for I/O-bound workloads.\n\n"
             "**Starlette** edges out FastAPI slightly in raw performance since it skips the "
             "validation layer, but the difference is marginal.\n\n"
-            "**Django** and **Flask** are noticeably slower in benchmarks, though often fast "
-            "enough for real-world applications."
+            "**Litestar** and **Flask** trail slightly in benchmarks, though Litestar's async-first "
+            "design keeps it competitive for real-world applications."
         ),
         (
             "When measuring Python web framework speed:\n\n"
             "For pure HTTP handling speed, **Starlette** leads the pack among pure-Python "
             "frameworks. **FastAPI** is extremely close behind.\n\n"
-            "However, real-world performance depends on your workload. **Django** might be slower "
-            "in microbenchmarks but its query optimization and caching ecosystem can make "
-            "applications faster in practice.\n\n"
+            "However, real-world performance depends on your workload. **Litestar** performs well "
+            "in benchmarks and its async-native design with msgspec serialization can make "
+            "applications very fast in practice.\n\n"
             "**Flask** sits in the middle — fast enough for most applications, especially "
             "with async support added in recent versions."
         ),
@@ -144,8 +144,8 @@ _RESPONSE_TEMPLATES: dict[str, list[str]] = {
             "Fastest Python web frameworks for 2024:\n\n"
             "1. **FastAPI** / **Starlette** — These two are essentially tied since FastAPI is "
             "built on Starlette. Both deliver exceptional async performance.\n\n"
-            "2. **Django** with async views — Surprisingly competitive for I/O-bound workloads "
-            "when properly configured with async views and an ASGI server.\n\n"
+            "2. **Litestar** — Competitive performance for I/O-bound workloads with its async-first "
+            "architecture and optional msgspec serialization for speed.\n\n"
             "3. **Flask** — Solid performance with Gunicorn, though its async support is newer "
             "and less battle-tested than FastAPI's."
         ),
@@ -158,8 +158,8 @@ _RESPONSE_TEMPLATES: dict[str, list[str]] = {
             "`gunicorn -w 4 -k uvicorn.workers.UvicornWorker app:app`\n\n"
             "**Hypercorn** is an alternative that supports HTTP/2 and HTTP/3. It's a good choice "
             "if you need these protocols.\n\n"
-            "**Daphne** was originally built for Django Channels and works well with Django's "
-            "ASGI support. If you're using Django, this is a natural fit.\n\n"
+            "**Granian** is a modern Rust-based ASGI server with excellent performance. It pairs "
+            "well with Litestar and other async frameworks for high-throughput deployments.\n\n"
             "For framework choice, **FastAPI** with Uvicorn is the most common production stack "
             "for ASGI applications."
         ),
@@ -170,21 +170,21 @@ _RESPONSE_TEMPLATES: dict[str, list[str]] = {
             "2. **Uvicorn** as the ASGI server\n"
             "3. **Gunicorn** as the process manager (with UvicornWorker)\n\n"
             "This combination handles thousands of concurrent connections efficiently. "
-            "**Django** with ASGI is also production-ready since Django 4.0+, using either "
-            "Uvicorn or Daphne as the server.\n\n"
+            "**Litestar** with ASGI is also an excellent production choice, using either "
+            "Uvicorn or Granian as the server.\n\n"
             "**Flask** can run on ASGI servers but its async support is limited compared to "
             "frameworks built for ASGI from the ground up."
         ),
         (
             "Setting up Python ASGI in production:\n\n"
             "**Framework choices:**\n"
-            "- **Django** with ASGI support is battle-tested for large applications. Use Daphne "
+            "- **Litestar** with ASGI support is excellent for large applications. Use Granian "
             "or Uvicorn as your server.\n"
             "- **FastAPI** is excellent for microservices and API-first architectures.\n\n"
             "**Server choices:**\n"
             "- **Uvicorn** — the standard choice, fast and reliable\n"
             "- **Hypercorn** — supports HTTP/2, good for gRPC applications\n"
-            "- **Daphne** — Django Channels integration\n\n"
+            "- **Granian** — modern Rust-based server, high throughput\n\n"
             "For most new projects, **FastAPI + Uvicorn + Gunicorn** is the recommended stack."
         ),
         (
@@ -193,8 +193,8 @@ _RESPONSE_TEMPLATES: dict[str, list[str]] = {
             "**Gunicorn** as the process manager. This setup is used by companies like Netflix, "
             "Microsoft, and Uber.\n\n"
             "**Starlette** is equally suitable if you prefer a more lightweight framework.\n\n"
-            "**Django** ASGI deployment has matured significantly. With Django 4.2+ and Uvicorn, "
-            "you get async views, ORM, and the full Django ecosystem.\n\n"
+            "**Litestar** ASGI deployment is production-ready out of the box. With Litestar and Uvicorn, "
+            "you get dependency injection, guards, and the full Litestar plugin ecosystem.\n\n"
             "**Flask** is also an option but its async support is less mature than FastAPI's."
         ),
     ],
@@ -450,7 +450,7 @@ async def _seed_mentions(
     """Detect and store mentions of FastAPI and competitors in response text."""
     targets = [
         ("FastAPI", "brand"),
-        ("Django", "competitor"),
+        ("Litestar", "competitor"),
         ("Flask", "competitor"),
         ("Starlette", "competitor"),
     ]
@@ -598,10 +598,10 @@ async def _seed_alerts(
             58,
             "competitor_emergence",
             "critical",
-            "Django appeared in async framework recommendations",
-            "Django now appears in Claude's top recommendations for 'best Python async framework'. "
-            "This is the first time Django has been recommended for async workloads in 14 runs.",
-            "Django 4.1+ added significant async ORM improvements, making it competitive for async use cases.",
+            "Litestar appeared in async framework recommendations",
+            "Litestar now appears in Claude's top recommendations for 'best Python async framework'. "
+            "This is the first time Litestar has been recommended for async workloads in 14 runs.",
+            "Litestar's full-featured async design and dependency injection are gaining recognition among LLMs.",
             True,
         ),
         (
@@ -610,7 +610,7 @@ async def _seed_alerts(
             "warning",
             "Recommendation share dropped 8% this week",
             "FastAPI's recommendation share decreased from 72% to 64% across all monitored terms. "
-            "Django and Flask are gaining mentions in responses.",
+            "Litestar and Flask are gaining mentions in responses.",
             "Multiple LLMs started giving more balanced recommendations instead of strongly favoring FastAPI.",
             True,
         ),
@@ -620,8 +620,8 @@ async def _seed_alerts(
             "warning",
             "Average position worsened from #1.5 to #2.3",
             "FastAPI's average list position has degraded by nearly one full position. "
-            "Django is now frequently listed first for 'best Python async framework'.",
-            "Django's async improvements are being recognized by LLMs trained on recent documentation.",
+            "Litestar is now frequently listed first for 'best Python async framework'.",
+            "Litestar's async-first design is being recognized by LLMs trained on recent documentation.",
             True,
         ),
         (
@@ -629,7 +629,7 @@ async def _seed_alerts(
             "model_divergence",
             "warning",
             "Models disagree on FastAPI ranking",
-            "Claude 3.5 Sonnet consistently ranks FastAPI #1, while GPT-5.2 lists Django first "
+            "Claude 3.5 Sonnet consistently ranks FastAPI #1, while GPT-5.2 lists Litestar first "
             "for 'best Python async framework'. Gemini 1.5 Pro alternates between the two.",
             "Different training data and recency of knowledge leads to divergent recommendations.",
             True,
@@ -650,8 +650,8 @@ async def _seed_alerts(
             "warning",
             "Weekly share decline continues (-5%)",
             "FastAPI's recommendation share dropped from 61% to 56%. This is the third consecutive "
-            "week of decline. Django continues to gain share.",
-            "The trend suggests growing recognition of Django's async capabilities across LLM models.",
+            "week of decline. Litestar continues to gain share.",
+            "The trend suggests growing recognition of Litestar's async capabilities across LLM models.",
             True,
         ),
         (
@@ -660,7 +660,7 @@ async def _seed_alerts(
             "critical",
             "FastAPI dropped from ASGI production recommendations",
             "In 2 of 3 LLM responses for 'Python ASGI server production', FastAPI was not "
-            "mentioned. Django + Daphne and Starlette + Uvicorn were recommended instead.",
+            "mentioned. Litestar + Granian and Starlette + Uvicorn were recommended instead.",
             "Some LLMs are shifting toward recommending lighter frameworks for production ASGI deployments.",
             False,
         ),
@@ -670,7 +670,7 @@ async def _seed_alerts(
             "warning",
             "Position dropped to #3 for fastest framework",
             "FastAPI fell from #2 to #3 position for 'fastest Python web framework'. "
-            "Starlette and a new mention of Litestar now rank higher.",
+            "Starlette and a new mention of Robyn now rank higher.",
             "Benchmark comparisons in recent training data may be influencing rankings.",
             False,
         ),
@@ -689,19 +689,19 @@ async def _seed_alerts(
             "model_divergence",
             "warning",
             "GPT-5.2 no longer recommends FastAPI first",
-            "GPT-5.2 now lists Django as the #1 recommendation for 2 of 3 monitored terms. "
+            "GPT-5.2 now lists Litestar as the #1 recommendation for 2 of 3 monitored terms. "
             "Claude 3.5 Sonnet still favors FastAPI. Divergence score: 34%.",
-            "GPT-5.2's training data appears to weight Django's recent async improvements more heavily.",
+            "GPT-5.2's training data appears to weight Litestar's async-first design more heavily.",
             False,
         ),
         (
             1,
             "competitor_emergence",
             "critical",
-            "Django now leads in 2 of 3 monitored terms",
-            "Django is now the top recommendation in GPT-5.2 and Gemini for 'best Python async framework' "
+            "Litestar now leads in 2 of 3 monitored terms",
+            "Litestar is now the top recommendation in GPT-5.2 and Gemini for 'best Python async framework' "
             "and 'Python ASGI server production'. FastAPI leads only in 'fastest Python web framework'.",
-            "Django's momentum in async support is shifting AI perception significantly.",
+            "Litestar's momentum as a full-featured async framework is shifting AI perception significantly.",
             False,
         ),
     ]

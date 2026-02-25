@@ -35,7 +35,7 @@ async def _setup_test_db(db_path: str) -> None:
         await db.execute(
             "INSERT INTO competitors (id, project_id, name, is_active, created_at, updated_at)"
             " VALUES (?, ?, ?, ?, ?, ?)",
-            ("comp-1", "proj-1", "Django", 1, now, now),
+            ("comp-1", "proj-1", "Litestar", 1, now, now),
         )
         await db.execute(
             "INSERT INTO competitors (id, project_id, name, is_active, created_at, updated_at)"
@@ -59,7 +59,7 @@ async def _setup_test_db(db_path: str) -> None:
             " response_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 "resp-1", "run-1", "proj-1", "term-1", "openrouter", "gpt-4o",
-                "Here are the best Python frameworks:\n1. Django - Full-featured\n2. FastAPI - Modern async\n"
+                "Here are the best Python frameworks:\n1. Litestar - Full-featured\n2. FastAPI - Modern async\n"
                 "3. Flask - Lightweight",
                 now,
             ),
@@ -69,7 +69,7 @@ async def _setup_test_db(db_path: str) -> None:
             " response_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 "resp-2", "run-1", "proj-1", "term-1", "openrouter", "claude-3",
-                "Top recommendations:\n1. FastAPI - Best for async\n2. Django - Great ORM\n3. Starlette",
+                "Top recommendations:\n1. FastAPI - Best for async\n2. Litestar - Great ORM\n3. Starlette",
                 now,
             ),
         )
