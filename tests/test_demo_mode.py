@@ -179,7 +179,7 @@ async def test_read_demo_competitors(tmp_path):
             data = resp.json()
             assert len(data) == 3
             names = {c["name"] for c in data}
-            assert names == {"Django", "Flask", "Starlette"}
+            assert names == {"Litestar", "Flask", "Starlette"}
 
 
 @pytest.mark.asyncio

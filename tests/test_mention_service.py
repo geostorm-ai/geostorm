@@ -72,37 +72,37 @@ def _fake_db_conn(db_path: str):
 
 class TestParseNumberedList:
     def test_standard_list(self):
-        text = "1. Django\n2. Flask\n3. FastAPI"
+        text = "1. Litestar\n2. Flask\n3. FastAPI"
         items = parse_numbered_list(text)
         assert len(items) == 3
         assert items[0].position == 1
-        assert items[0].text == "Django"
+        assert items[0].text == "Litestar"
         assert items[1].position == 2
         assert items[1].text == "Flask"
         assert items[2].position == 3
         assert items[2].text == "FastAPI"
 
     def test_parenthesis_format(self):
-        text = "1) Django\n2) Flask"
+        text = "1) Litestar\n2) Flask"
         items = parse_numbered_list(text)
         assert len(items) == 2
         assert items[0].position == 1
-        assert items[0].text == "Django"
+        assert items[0].text == "Litestar"
         assert items[1].position == 2
         assert items[1].text == "Flask"
 
     def test_markdown_bold(self):
-        text = "**1. Django**\n**2. Flask**"
+        text = "**1. Litestar**\n**2. Flask**"
         items = parse_numbered_list(text)
         assert len(items) == 2
         assert items[0].position == 1
         # Text may include trailing **, that's fine as long as it's parsed
-        assert "Django" in items[0].text
+        assert "Litestar" in items[0].text
         assert items[1].position == 2
         assert "Flask" in items[1].text
 
     def test_no_list(self):
-        text = "Django is a great web framework for building applications quickly."
+        text = "Litestar is a great web framework for building applications quickly."
         items = parse_numbered_list(text)
         assert items == []
 
@@ -154,17 +154,17 @@ class TestDetectMentions:
         assert len(mentions) == 0
 
     def test_competitor_detection(self):
-        text = "Django and Flask are popular alternatives."
+        text = "Litestar and Flask are popular alternatives."
         mentions = detect_mentions(
             text,
             brand_name="FastAPI",
             brand_aliases=[],
-            competitors=["Django", "Flask"],
+            competitors=["Litestar", "Flask"],
         )
         competitor_mentions = [m for m in mentions if m.mention_type == MentionType.COMPETITOR]
         assert len(competitor_mentions) == 2
         names = {m.target_name for m in competitor_mentions}
-        assert names == {"Django", "Flask"}
+        assert names == {"Litestar", "Flask"}
 
     def test_multiple_mentions(self):
         text = "FastAPI is fast. FastAPI is also easy to use. FastAPI has great docs."
@@ -187,7 +187,7 @@ class TestDetectMentions:
         assert mention.context_after.startswith(" because")
 
     def test_list_position_tracking(self):
-        text = "1. Django\n2. Flask\n3. FastAPI\n4. Tornado"
+        text = "1. Litestar\n2. Flask\n3. FastAPI\n4. Tornado"
         mentions = detect_mentions(text, brand_name="FastAPI", brand_aliases=[], competitors=[])
         assert len(mentions) == 1
         assert mentions[0].list_position == 3
@@ -225,7 +225,7 @@ class TestStoreMentions:
             ),
             DetectedMention(
                 mention_type=MentionType.COMPETITOR,
-                target_name="Django",
+                target_name="Litestar",
                 position_chars=50,
                 position_words=8,
                 list_position=None,
@@ -251,8 +251,8 @@ class TestStoreMentions:
             assert row_by_name["FastAPI"]["mention_type"] == "brand"
             assert row_by_name["FastAPI"]["position_chars"] == 10
             assert row_by_name["FastAPI"]["list_position"] == 1
-            assert row_by_name["Django"]["mention_type"] == "competitor"
-            assert row_by_name["Django"]["list_position"] is None
+            assert row_by_name["Litestar"]["mention_type"] == "competitor"
+            assert row_by_name["Litestar"]["list_position"] is None
         finally:
             await db.close()
 
@@ -286,7 +286,7 @@ class TestDetectAndStoreMentionsForResponse:
         db_path = str(tmp_path / "test.db")
         await _setup_test_db(db_path)
 
-        response_text = "1. Django\n2. Flask\n3. FastAPI"
+        response_text = "1. Litestar\n2. Flask\n3. FastAPI"
 
         with patch("src.services.mention_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
             ids = await detect_and_store_mentions_for_response(
@@ -294,7 +294,7 @@ class TestDetectAndStoreMentionsForResponse:
                 response_text=response_text,
                 brand_name="FastAPI",
                 brand_aliases=[],
-                competitors=["Django", "Flask"],
+                competitors=["Litestar", "Flask"],
             )
 
         assert len(ids) >= 3  # at least brand + 2 competitors
