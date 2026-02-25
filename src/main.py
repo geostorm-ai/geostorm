@@ -29,6 +29,7 @@ logfire.configure(
         min_log_level='info',
     ),
 )
+logfire.instrument_pydantic_ai()
 logging.basicConfig(handlers=[logfire.LogfireLoggingHandler()], level=logging.INFO)
 
 from src.database import check_database_health, initialize_database

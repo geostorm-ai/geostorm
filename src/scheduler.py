@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any
 import logfire
 
 from src.database import get_db_connection
-from src.llm.base import LLMProviderError, PromptRequest, PromptResponse, ProviderType
-from src.llm.factory import create_provider
+from src.llm.base import LLMError, PromptRequest, PromptResponse, ProviderType
+from src.llm.client import send_prompt
 from src.llm.prompt_service import generate_prompt, get_system_prompt
 from src.progress import RunPhase, RunProgressEvent, progress_bus
 
@@ -228,27 +228,18 @@ async def _execute_single_query(  # noqa: PLR0913
                                         f"Unknown provider type: {provider_name}")
             return False
 
-        provider = await create_provider(provider_type)
-        if not provider:
-            logger.warning("No API key for provider %s, skipping", provider_name)
-            await _store_error_response(run_id, project_id, term_id, provider_name, model_name,
-                                        f"No API key configured for {provider_name}")
-            return False
-
         try:
             request = PromptRequest(prompt=prompt_text, model_id=model_name, system_prompt=system_prompt)
-            response = await provider.send_prompt(request)
+            response = await send_prompt(request, provider_type)
             await _store_response(run_id, project_id, term_id, provider_name, model_name, response)
-        except LLMProviderError as e:
-            logger.warning("LLM error for %s/%s: %s", provider_name, model_name, e.error.message)
-            await _store_error_response(run_id, project_id, term_id, provider_name, model_name, e.error.message)
+        except LLMError as e:
+            logger.warning("LLM error for %s/%s: %s", provider_name, model_name, e)
+            await _store_error_response(run_id, project_id, term_id, provider_name, model_name, str(e))
             return False
         except Exception:
             logger.exception("Unexpected error for %s/%s", provider_name, model_name)
             await _store_error_response(run_id, project_id, term_id, provider_name, model_name, "Unexpected error")
             return False
-        finally:
-            await provider.close()
 
         return True
 

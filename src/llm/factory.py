@@ -1,13 +1,14 @@
-"""LLM provider factory and API key resolution."""
+"""LLM model factory and API key resolution."""
 
 import logging
 
 import logfire
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 
 from src.config import get_settings
 from src.database import get_db_connection
-from src.llm.base import BaseLLMProvider, ProviderType
-from src.llm.openrouter import OpenRouterProvider
+from src.llm.base import LLMError, ProviderType
 
 logger = logging.getLogger(__name__)
 
@@ -47,19 +48,19 @@ async def get_api_key(provider_type: ProviderType) -> str | None:
     return None
 
 
-async def create_provider(provider_type: ProviderType) -> BaseLLMProvider | None:
-    """Create a provider instance if an API key is available."""
+async def create_model(provider_type: ProviderType, model_id: str) -> OpenAIChatModel:
+    """Create a Pydantic AI model for the given provider and model ID."""
     api_key = await get_api_key(provider_type)
     if not api_key:
-        return None
+        msg = f"No API key configured for {provider_type}"
+        raise LLMError(msg, provider=provider_type)
 
     if provider_type == ProviderType.OPENROUTER:
-        logfire.info('created LLM provider', provider=provider_type.value)
-        return OpenRouterProvider(api_key)
+        logfire.info("created LLM model", provider=provider_type.value, model=model_id)
+        return OpenAIChatModel(model_id, provider=OpenRouterProvider(api_key=api_key))
 
-    # Future: add OPENAI, ANTHROPIC, GOOGLE providers here
-    logger.warning("Provider %s is not yet implemented", provider_type)
-    return None
+    msg = f"Provider {provider_type} is not yet implemented"
+    raise LLMError(msg, provider=provider_type)
 
 
 async def get_available_providers() -> list[ProviderType]:

@@ -1,19 +1,16 @@
 """Tests for the LLM provider layer."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 
 from src.llm.base import (
-    LLMProviderError,
+    LLMError,
     PromptRequest,
     PromptResponse,
-    ProviderError,
     ProviderType,
 )
 from src.llm.factory import get_api_key
-from src.llm.openrouter import OpenRouterProvider
 from src.llm.prompt_service import generate_prompt, get_system_prompt
 
 # ---------------------------------------------------------------------------
@@ -48,9 +45,8 @@ class TestPromptService:
 
 
 # ---------------------------------------------------------------------------
-# BaseLLMProvider retry logic tests
+# send_prompt / send_structured_prompt tests
 # ---------------------------------------------------------------------------
-
 
 
 def _ok_response() -> PromptResponse:
@@ -66,265 +62,157 @@ def _ok_response() -> PromptResponse:
     )
 
 
-def _retryable_error() -> LLMProviderError:
-    return LLMProviderError(
-        ProviderError(
-            code="http_429",
-            message="Rate limited",
-            provider=ProviderType.OPENROUTER,
-            is_retryable=True,
-            retry_after_seconds=0,
-        ),
-    )
+def _mock_run_result(text: str = "test response", input_tokens: int = 10, output_tokens: int = 20) -> MagicMock:
+    """Create a mock result from Agent.run()."""
+    result = MagicMock()
+    result.output = text
+    usage = MagicMock()
+    usage.input_tokens = input_tokens
+    usage.output_tokens = output_tokens
+    result.usage.return_value = usage
+    return result
 
 
-def _non_retryable_error() -> LLMProviderError:
-    return LLMProviderError(
-        ProviderError(
-            code="http_401",
-            message="Unauthorized",
-            provider=ProviderType.OPENROUTER,
-            is_retryable=False,
-        ),
-    )
+class TestSendPrompt:
+    async def test_send_prompt_success(self):
+        from src.llm.client import send_prompt
 
+        mock_result = _mock_run_result()
 
-class TestBaseLLMProviderRetry:
-    """Test the retry logic by importing and using the real BaseLLMProvider."""
+        with (
+            patch("src.llm.client.create_model", new_callable=AsyncMock) as mock_create,
+            patch("src.llm.client.Agent") as mock_agent_cls,
+            patch("src.llm.client.calc_price", return_value=None),
+        ):
+            mock_create.return_value = MagicMock()
+            mock_agent_instance = MagicMock()
+            mock_agent_instance.run = AsyncMock(return_value=mock_result)
+            mock_agent_cls.return_value = mock_agent_instance
 
-    async def test_successful_first_attempt(self):
-        from src.llm.base import BaseLLMProvider
-
-        class TestProvider(BaseLLMProvider):
-            provider_type = ProviderType.OPENROUTER
-
-            def __init__(self):
-                self.call_count = 0
-
-            async def _send_request(self, request):
-                self.call_count += 1
-                return _ok_response()
-
-            async def close(self):
-                pass
-
-        provider = TestProvider()
-        request = PromptRequest(prompt="test", model_id="model")
-        result = await provider.send_prompt(request)
+            request = PromptRequest(prompt="test", model_id="openai/gpt-4o")
+            result = await send_prompt(request, ProviderType.OPENROUTER)
 
         assert result.text == "test response"
-        assert provider.call_count == 1
-
-    async def test_retries_on_retryable_error_then_succeeds(self):
-        from src.llm.base import BaseLLMProvider
-
-        class TestProvider(BaseLLMProvider):
-            provider_type = ProviderType.OPENROUTER
-
-            def __init__(self):
-                self.call_count = 0
-                self.items = [_retryable_error(), _ok_response()]
-
-            async def _send_request(self, request):
-                idx = self.call_count
-                self.call_count += 1
-                item = self.items[idx]
-                if isinstance(item, LLMProviderError):
-                    raise item
-                return item
-
-            async def close(self):
-                pass
-
-        provider = TestProvider()
-        request = PromptRequest(prompt="test", model_id="model")
-        result = await provider.send_prompt(request)
-
-        assert result.text == "test response"
-        assert provider.call_count == 2
-
-    async def test_retries_3_times_on_retryable_then_raises(self):
-        from src.llm.base import BaseLLMProvider
-
-        class TestProvider(BaseLLMProvider):
-            provider_type = ProviderType.OPENROUTER
-
-            def __init__(self):
-                self.call_count = 0
-
-            async def _send_request(self, request):
-                self.call_count += 1
-                raise _retryable_error()
-
-            async def close(self):
-                pass
-
-        provider = TestProvider()
-        request = PromptRequest(prompt="test", model_id="model")
-
-        with pytest.raises(LLMProviderError) as exc_info:
-            await provider.send_prompt(request)
-
-        assert exc_info.value.error.is_retryable
-        assert provider.call_count == 3
-
-    async def test_no_retry_on_non_retryable_error(self):
-        from src.llm.base import BaseLLMProvider
-
-        class TestProvider(BaseLLMProvider):
-            provider_type = ProviderType.OPENROUTER
-
-            def __init__(self):
-                self.call_count = 0
-
-            async def _send_request(self, request):
-                self.call_count += 1
-                raise _non_retryable_error()
-
-            async def close(self):
-                pass
-
-        provider = TestProvider()
-        request = PromptRequest(prompt="test", model_id="model")
-
-        with pytest.raises(LLMProviderError) as exc_info:
-            await provider.send_prompt(request)
-
-        assert not exc_info.value.error.is_retryable
-        assert provider.call_count == 1
-
-
-# ---------------------------------------------------------------------------
-# OpenRouterProvider tests with mocked httpx
-# ---------------------------------------------------------------------------
-
-
-class TestOpenRouterProvider:
-    async def test_successful_request(self):
-        provider = OpenRouterProvider(api_key="test-key")
-
-        mock_response = httpx.Response(
-            200,
-            json={
-                "choices": [{"message": {"content": "Here are my recommendations..."}}],
-                "usage": {"prompt_tokens": 50, "completion_tokens": 100},
-            },
-        )
-
-        with patch.object(provider._client, "post", new_callable=AsyncMock, return_value=mock_response):
-            request = PromptRequest(prompt="test prompt", model_id="openai/gpt-4o")
-            result = await provider._send_request(request)
-
-        assert result.text == "Here are my recommendations..."
-        assert result.prompt_tokens == 50
-        assert result.completion_tokens == 100
-        assert result.total_tokens == 150
+        assert result.prompt_tokens == 10
+        assert result.completion_tokens == 20
+        assert result.total_tokens == 30
         assert result.provider == ProviderType.OPENROUTER
 
-        await provider.close()
+    async def test_send_prompt_with_cost(self):
+        from src.llm.client import send_prompt
 
-    async def test_retryable_error_429(self):
-        provider = OpenRouterProvider(api_key="test-key")
+        mock_result = _mock_run_result()
+        mock_price = MagicMock()
+        mock_price.total_price = 0.005
 
-        mock_response = httpx.Response(
-            429,
-            json={"error": {"message": "Rate limit exceeded"}},
-        )
-
-        with patch.object(provider._client, "post", new_callable=AsyncMock, return_value=mock_response):
-            request = PromptRequest(prompt="test", model_id="openai/gpt-4o")
-
-            with pytest.raises(LLMProviderError) as exc_info:
-                await provider._send_request(request)
-
-            assert exc_info.value.error.is_retryable
-            assert exc_info.value.error.code == "http_429"
-
-        await provider.close()
-
-    async def test_non_retryable_error_401(self):
-        provider = OpenRouterProvider(api_key="bad-key")
-
-        mock_response = httpx.Response(
-            401,
-            json={"error": {"message": "Invalid API key"}},
-        )
-
-        with patch.object(provider._client, "post", new_callable=AsyncMock, return_value=mock_response):
-            request = PromptRequest(prompt="test", model_id="openai/gpt-4o")
-
-            with pytest.raises(LLMProviderError) as exc_info:
-                await provider._send_request(request)
-
-            assert not exc_info.value.error.is_retryable
-            assert exc_info.value.error.code == "http_401"
-
-        await provider.close()
-
-    async def test_retryable_error_500(self):
-        provider = OpenRouterProvider(api_key="test-key")
-
-        mock_response = httpx.Response(500, json={"error": "Internal server error"})
-
-        with patch.object(provider._client, "post", new_callable=AsyncMock, return_value=mock_response):
-            request = PromptRequest(prompt="test", model_id="model")
-
-            with pytest.raises(LLMProviderError) as exc_info:
-                await provider._send_request(request)
-
-            assert exc_info.value.error.is_retryable
-
-        await provider.close()
-
-    async def test_timeout_is_retryable(self):
-        provider = OpenRouterProvider(api_key="test-key")
-
-        with patch.object(
-            provider._client, "post", new_callable=AsyncMock, side_effect=httpx.ReadTimeout("timeout"),
+        with (
+            patch("src.llm.client.create_model", new_callable=AsyncMock) as mock_create,
+            patch("src.llm.client.Agent") as mock_agent_cls,
+            patch("src.llm.client.calc_price", return_value=mock_price),
         ):
+            mock_create.return_value = MagicMock()
+            mock_agent_instance = MagicMock()
+            mock_agent_instance.run = AsyncMock(return_value=mock_result)
+            mock_agent_cls.return_value = mock_agent_instance
+
+            request = PromptRequest(prompt="test", model_id="openai/gpt-4o")
+            result = await send_prompt(request, ProviderType.OPENROUTER)
+
+        assert result.cost_usd == 0.005
+
+    async def test_send_prompt_wraps_agent_error(self):
+        from src.llm.client import send_prompt
+
+        with (
+            patch("src.llm.client.create_model", new_callable=AsyncMock) as mock_create,
+            patch("src.llm.client.Agent") as mock_agent_cls,
+        ):
+            mock_create.return_value = MagicMock()
+            mock_agent_instance = MagicMock()
+            mock_agent_instance.run = AsyncMock(side_effect=RuntimeError("API failed"))
+            mock_agent_cls.return_value = mock_agent_instance
+
+            request = PromptRequest(prompt="test", model_id="openai/gpt-4o")
+
+            with pytest.raises(LLMError) as exc_info:
+                await send_prompt(request, ProviderType.OPENROUTER)
+
+            assert "API failed" in str(exc_info.value)
+            assert exc_info.value.provider == ProviderType.OPENROUTER
+
+    async def test_send_prompt_passes_settings(self):
+        from src.llm.client import send_prompt
+
+        mock_result = _mock_run_result()
+
+        with (
+            patch("src.llm.client.create_model", new_callable=AsyncMock) as mock_create,
+            patch("src.llm.client.Agent") as mock_agent_cls,
+            patch("src.llm.client.calc_price", return_value=None),
+        ):
+            mock_create.return_value = MagicMock()
+            mock_agent_instance = MagicMock()
+            mock_agent_instance.run = AsyncMock(return_value=mock_result)
+            mock_agent_cls.return_value = mock_agent_instance
+
+            request = PromptRequest(prompt="test", model_id="model", temperature=0.5, max_tokens=100)
+            await send_prompt(request, ProviderType.OPENROUTER)
+
+            call_kwargs = mock_agent_instance.run.call_args
+            settings = call_kwargs.kwargs["model_settings"]
+            assert settings.get("temperature") == 0.5
+            assert settings.get("max_tokens") == 100
+
+
+class TestSendStructuredPrompt:
+    async def test_send_structured_prompt_success(self):
+        from pydantic import BaseModel
+
+        from src.llm.client import send_structured_prompt
+
+        class TestOutput(BaseModel):
+            name: str
+            value: int
+
+        mock_result = MagicMock()
+        mock_result.output = TestOutput(name="test", value=42)
+
+        with (
+            patch("src.llm.client.create_model", new_callable=AsyncMock) as mock_create,
+            patch("src.llm.client.Agent") as mock_agent_cls,
+        ):
+            mock_create.return_value = MagicMock()
+            mock_agent_instance = MagicMock()
+            mock_agent_instance.run = AsyncMock(return_value=mock_result)
+            mock_agent_cls.return_value = mock_agent_instance
+
+            request = PromptRequest(prompt="test", model_id="model", temperature=0.3)
+            result = await send_structured_prompt(request, ProviderType.OPENROUTER, TestOutput)
+
+        assert result.name == "test"
+        assert result.value == 42
+
+    async def test_send_structured_prompt_wraps_error(self):
+        from pydantic import BaseModel
+
+        from src.llm.client import send_structured_prompt
+
+        class TestOutput(BaseModel):
+            name: str
+
+        with (
+            patch("src.llm.client.create_model", new_callable=AsyncMock) as mock_create,
+            patch("src.llm.client.Agent") as mock_agent_cls,
+        ):
+            mock_create.return_value = MagicMock()
+            mock_agent_instance = MagicMock()
+            mock_agent_instance.run = AsyncMock(side_effect=RuntimeError("parse failed"))
+            mock_agent_cls.return_value = mock_agent_instance
+
             request = PromptRequest(prompt="test", model_id="model")
 
-            with pytest.raises(LLMProviderError) as exc_info:
-                await provider._send_request(request)
-
-            assert exc_info.value.error.is_retryable
-            assert exc_info.value.error.code == "timeout"
-
-        await provider.close()
-
-    async def test_system_prompt_included_in_messages(self):
-        provider = OpenRouterProvider(api_key="test-key")
-
-        mock_response = httpx.Response(
-            200,
-            json={
-                "choices": [{"message": {"content": "response"}}],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
-            },
-        )
-
-        captured_payload: dict[str, object] = {}
-
-        async def mock_post(url: str, **kwargs: object) -> httpx.Response:
-            captured_payload.update(kwargs)  # type: ignore[arg-type]
-            return mock_response
-
-        with patch.object(provider._client, "post", side_effect=mock_post):
-            request = PromptRequest(
-                prompt="user prompt",
-                model_id="model",
-                system_prompt="system instructions",
-            )
-            await provider._send_request(request)
-
-        messages = captured_payload["json"]["messages"]  # type: ignore[index]
-        assert len(messages) == 2
-        assert messages[0]["role"] == "system"
-        assert messages[0]["content"] == "system instructions"
-        assert messages[1]["role"] == "user"
-        assert messages[1]["content"] == "user prompt"
-
-        await provider.close()
+            with pytest.raises(LLMError):
+                await send_structured_prompt(request, ProviderType.OPENROUTER, TestOutput)
 
 
 # ---------------------------------------------------------------------------

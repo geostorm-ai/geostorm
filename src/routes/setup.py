@@ -8,13 +8,12 @@ from typing import Any
 
 import logfire
 from fastapi import APIRouter, HTTPException, Response
-from pydantic import ValidationError
 
 from src.config import get_settings
 from src.database import get_db_connection
-from src.llm.base import LLMProviderError, PromptRequest, ProviderType
+from src.llm.base import LLMError, PromptRequest, ProviderType
+from src.llm.client import send_structured_prompt
 from src.llm.factory import get_api_key
-from src.llm.openrouter import OpenRouterProvider
 from src.schemas import (
     ApiKeyStatusResponse,
     AutofillLLMResponse,
@@ -137,32 +136,6 @@ Include a mix of: category phrases ("open source BaaS"), comparison phrases \
 ("Supabase vs Firebase"), and use-case phrases ("backend for React app").\
 """
 
-_AUTOFILL_RESPONSE_FORMAT: dict[str, object] = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "autofill_response",
-        "strict": True,
-        "schema": {
-            "type": "object",
-            "properties": {
-                "brand_name": {"type": "string"},
-                "brand_aliases": {"type": "array", "items": {"type": "string"}},
-                "description": {"type": "string"},
-                "competitors": {"type": "array", "items": {"type": "string"}},
-                "monitoring_terms": {"type": "array", "items": {"type": "string"}},
-            },
-            "required": [
-                "brand_name",
-                "brand_aliases",
-                "description",
-                "competitors",
-                "monitoring_terms",
-            ],
-            "additionalProperties": False,
-        },
-    },
-}
-
 
 @router.post("/setup/autofill")
 async def autofill_project(req: AutofillRequest) -> AutofillResponse:
@@ -171,27 +144,22 @@ async def autofill_project(req: AutofillRequest) -> AutofillResponse:
         raise HTTPException(status_code=400, detail="No OpenRouter API key configured")
 
     with logfire.span('autofill project', input=req.input):
-        provider = OpenRouterProvider(api_key)
         try:
-            response = await provider.send_prompt(
+            data = await send_structured_prompt(
                 PromptRequest(
                     prompt=req.input,
                     model_id="google/gemini-2.0-flash-001",
                     system_prompt=_AUTOFILL_SYSTEM_PROMPT,
                     temperature=0.3,
-                    response_format=_AUTOFILL_RESPONSE_FORMAT,
                 ),
+                provider_type=ProviderType.OPENROUTER,
+                output_type=AutofillLLMResponse,
             )
-        except LLMProviderError as e:
+        except LLMError as e:
             logger.warning("Autofill LLM error: %s", e)
             raise HTTPException(status_code=502, detail="AI service error") from e
-        finally:
-            await provider.close()
-
-        try:
-            data = AutofillLLMResponse.model_validate_json(response.text)
-        except ValidationError as e:
-            logger.warning("Autofill returned invalid JSON: %s", response.text[:200])
+        except Exception as e:
+            logger.warning("Autofill error: %s", e)
             raise HTTPException(status_code=502, detail="AI returned invalid response") from e
 
     return AutofillResponse(

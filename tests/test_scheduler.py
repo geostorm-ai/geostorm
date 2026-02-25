@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 import aiosqlite
 
-from src.llm.base import LLMProviderError, PromptResponse, ProviderError, ProviderType
+from src.llm.base import LLMError, PromptResponse, ProviderType
 from src.scheduler import execute_monitoring_run, should_run_schedule
 
 _MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations" / "001_initial_schema.sql"
@@ -148,30 +148,18 @@ def _fake_db_conn(db_path: str):
     return _ctx
 
 
-class _MockLLMProvider:
-    """Mock LLM provider for testing."""
-
-    provider_type = ProviderType.OPENROUTER
-
-    def __init__(self, response_text: str = "Mock recommendation list") -> None:
-        self.response_text = response_text
-        self.call_count = 0
-
-    async def send_prompt(self, request: object) -> PromptResponse:
-        self.call_count += 1
-        return PromptResponse(
-            text=self.response_text,
-            model_id="openai/gpt-4o",
-            provider=ProviderType.OPENROUTER,
-            prompt_tokens=50,
-            completion_tokens=100,
-            total_tokens=150,
-            latency_ms=500,
-            cost_usd=0.01,
-        )
-
-    async def close(self) -> None:
-        pass
+def _mock_send_prompt(response_text: str = "Mock recommendation list") -> AsyncMock:
+    """Create a mock for send_prompt that returns a PromptResponse."""
+    return AsyncMock(return_value=PromptResponse(
+        text=response_text,
+        model_id="openai/gpt-4o",
+        provider=ProviderType.OPENROUTER,
+        prompt_tokens=50,
+        completion_tokens=100,
+        total_tokens=150,
+        latency_ms=500,
+        cost_usd=0.01,
+    ))
 
 
 class TestExecuteMonitoringRun:
@@ -179,11 +167,11 @@ class TestExecuteMonitoringRun:
         db_path = str(tmp_path / "test.db")
         await _setup_test_db(db_path)
 
-        mock_provider = _MockLLMProvider()
+        mock_prompt = _mock_send_prompt()
 
         with (
             patch("src.scheduler.get_db_connection", side_effect=_fake_db_conn(db_path)),
-            patch("src.scheduler.create_provider", return_value=mock_provider),
+            patch("src.scheduler.send_prompt", mock_prompt),
             patch("src.scheduler.asyncio.sleep", new_callable=AsyncMock),
         ):
             run_id = await execute_monitoring_run(
@@ -223,27 +211,19 @@ class TestExecuteMonitoringRun:
         finally:
             await db.close()
 
-        assert mock_provider.call_count == 2
+        assert mock_prompt.call_count == 2
 
     async def test_handles_provider_error(self, tmp_path):
         db_path = str(tmp_path / "test.db")
         await _setup_test_db(db_path)
 
-        failing_provider = AsyncMock()
-        failing_provider.provider_type = ProviderType.OPENROUTER
-        failing_provider.send_prompt.side_effect = LLMProviderError(
-            ProviderError(
-                code="http_401",
-                message="Invalid API key",
-                provider=ProviderType.OPENROUTER,
-                is_retryable=False,
-            ),
+        mock_prompt = AsyncMock(
+            side_effect=LLMError("Invalid API key", provider=ProviderType.OPENROUTER),
         )
-        failing_provider.close = AsyncMock()
 
         with (
             patch("src.scheduler.get_db_connection", side_effect=_fake_db_conn(db_path)),
-            patch("src.scheduler.create_provider", return_value=failing_provider),
+            patch("src.scheduler.send_prompt", mock_prompt),
             patch("src.scheduler.asyncio.sleep", new_callable=AsyncMock),
         ):
             run_id = await execute_monitoring_run(

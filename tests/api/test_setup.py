@@ -9,8 +9,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from src.llm.base import LLMProviderError, PromptResponse, ProviderError, ProviderType
+from src.llm.base import LLMError, ProviderType
 from src.routes.setup import router
+from src.schemas import AutofillLLMResponse
 
 _MIGRATIONS = (
     Path(__file__).resolve().parent.parent.parent / "migrations" / "001_initial_schema.sql"
@@ -270,43 +271,28 @@ async def test_delete_api_key(tmp_path):
 # Autofill endpoint tests
 # ---------------------------------------------------------------------------
 
-_AUTOFILL_LLM_JSON = (
-    '{"brand_name":"Supabase","brand_aliases":["supabase"],'
-    '"description":"Open source Firebase alternative.",'
-    '"competitors":["Firebase","PlanetScale","Neon"],'
-    '"monitoring_terms":["Firebase alternative","open source BaaS",'
-    '"Supabase vs Firebase","backend for React app","serverless database platform"]}'
-)
-
-
-def _fake_llm_response(text: str = _AUTOFILL_LLM_JSON) -> PromptResponse:
-    return PromptResponse(
-        text=text,
-        model_id="google/gemini-2.0-flash-001",
-        provider=ProviderType.OPENROUTER,
-        prompt_tokens=100,
-        completion_tokens=50,
-        total_tokens=150,
-        latency_ms=500,
-        cost_usd=0.001,
-    )
-
 
 @pytest.mark.asyncio
 async def test_autofill_success(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    mock_provider = AsyncMock()
-    mock_provider.send_prompt.return_value = _fake_llm_response()
-    mock_provider.close = AsyncMock()
+    mock_structured = AsyncMock(return_value=AutofillLLMResponse(
+        brand_name="Supabase",
+        brand_aliases=["supabase"],
+        description="Open source Firebase alternative.",
+        competitors=["Firebase", "PlanetScale", "Neon"],
+        monitoring_terms=["Firebase alternative", "open source BaaS",
+                          "Supabase vs Firebase", "backend for React app",
+                          "serverless database platform"],
+    ))
 
     (p1,) = _patches(db_path)
     with (
         p1,
         patch("src.routes.setup.get_settings", return_value=_fake_settings("sk-or-test")),
         patch("src.routes.setup.get_api_key", return_value="sk-or-test"),
-        patch("src.routes.setup.OpenRouterProvider", return_value=mock_provider),
+        patch("src.routes.setup.send_structured_prompt", mock_structured),
     ):
         test_app = FastAPI()
         test_app.include_router(router)
@@ -340,20 +326,20 @@ async def test_autofill_no_api_key(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_autofill_invalid_json_from_llm(tmp_path):
+async def test_autofill_llm_error(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    mock_provider = AsyncMock()
-    mock_provider.send_prompt.return_value = _fake_llm_response(text="not valid json")
-    mock_provider.close = AsyncMock()
+    mock_structured = AsyncMock(
+        side_effect=LLMError("Internal error", provider=ProviderType.OPENROUTER),
+    )
 
     (p1,) = _patches(db_path)
     with (
         p1,
         patch("src.routes.setup.get_settings", return_value=_fake_settings("sk-or-test")),
         patch("src.routes.setup.get_api_key", return_value="sk-or-test"),
-        patch("src.routes.setup.OpenRouterProvider", return_value=mock_provider),
+        patch("src.routes.setup.send_structured_prompt", mock_structured),
     ):
         test_app = FastAPI()
         test_app.include_router(router)
@@ -364,27 +350,20 @@ async def test_autofill_invalid_json_from_llm(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_autofill_llm_error(tmp_path):
+async def test_autofill_unexpected_error(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    mock_provider = AsyncMock()
-    mock_provider.send_prompt.side_effect = LLMProviderError(
-        ProviderError(
-            code="http_500",
-            message="Internal error",
-            provider=ProviderType.OPENROUTER,
-            is_retryable=False,
-        ),
+    mock_structured = AsyncMock(
+        side_effect=RuntimeError("Something went wrong"),
     )
-    mock_provider.close = AsyncMock()
 
     (p1,) = _patches(db_path)
     with (
         p1,
         patch("src.routes.setup.get_settings", return_value=_fake_settings("sk-or-test")),
         patch("src.routes.setup.get_api_key", return_value="sk-or-test"),
-        patch("src.routes.setup.OpenRouterProvider", return_value=mock_provider),
+        patch("src.routes.setup.send_structured_prompt", mock_structured),
     ):
         test_app = FastAPI()
         test_app.include_router(router)
