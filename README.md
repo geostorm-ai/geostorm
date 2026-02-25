@@ -58,7 +58,7 @@ Open [http://localhost:8080](http://localhost:8080) -- the demo loads immediatel
 <summary><h3>Requirements</h3></summary>
 
 - [Docker](https://docs.docker.com/get-docker/)
-- That's it. Everything else runs inside the container.
+- An [OpenRouter](https://openrouter.ai/) API key (for querying AI models)
 
 </details>
 
