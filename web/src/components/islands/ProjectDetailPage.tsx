@@ -69,6 +69,9 @@ function ProjectDetailPageInner() {
 		enabled: !!id,
 	})
 
+	const { data: runsData } = useRuns(id ?? "", { limit: 1, enablePolling: !!id && !isLoading && !error })
+	const runCount = runsData?.total
+
 	if (!id) {
 		return (
 			<div className="p-6 text-center text-muted-foreground">
@@ -92,9 +95,6 @@ function ProjectDetailPageInner() {
 			</div>
 		)
 	}
-
-	const { data: runsData } = useRuns(id, { limit: 1, enablePolling: true })
-	const runCount = runsData?.total
 
 	return (
 		<>
