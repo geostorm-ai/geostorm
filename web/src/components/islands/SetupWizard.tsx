@@ -338,6 +338,9 @@ export function SetupWizard() {
 									)}
 								</Button>
 							</div>
+							<p className="text-xs text-muted-foreground">
+								AI will search the web to find your product info, competitors, and suggest monitoring terms. Costs less than $0.01.
+							</p>
 						</div>
 
 						{/* Inline API key prompt */}
