@@ -47,17 +47,12 @@ One container. One command. Full visibility into your AI presence.
 ## Quick Start
 
 ```bash
-docker run -d -p 8080:8080 --name geostorm ghcr.io/geostorm-ai/geostorm
+docker run -d -p 8080:8080 -v geostorm-data:/app/data --name geostorm ghcr.io/geostorm-ai/geostorm
 ```
 
 Open [http://localhost:8080](http://localhost:8080) -- the demo loads immediately.
 
 **That's it.** No git clone, no build step, no API keys, no database setup. A demo project with 90 days of synthetic monitoring data is ready to explore.
-
-> **Already have an OpenRouter key?** Pass it at startup and skip straight to monitoring:
-> ```bash
-> docker run -d -p 8080:8080 -e OPENROUTER_API_KEY=sk-or-v1-... --name geostorm ghcr.io/geostorm-ai/geostorm
-> ```
 
 <details>
 <summary><h3>Requirements</h3></summary>
@@ -92,7 +87,7 @@ To start monitoring your own software:
 **2. Restart with your key:**
 
 ```bash
-docker run -d -p 8080:8080 -e OPENROUTER_API_KEY=sk-or-v1-... --name geostorm ghcr.io/geostorm-ai/geostorm
+docker run -d -p 8080:8080 -v geostorm-data:/app/data -e OPENROUTER_API_KEY=sk-or-v1-... --name geostorm ghcr.io/geostorm-ai/geostorm
 ```
 
 **3. Create a project** in the UI and GeoStorm starts monitoring on a schedule.
@@ -231,7 +226,7 @@ GeoStorm does all of that out of the box. It's also cheaper and more predictable
 ### Ready to see what AI thinks about your software?
 
 ```bash
-docker run -d -p 8080:8080 --name geostorm ghcr.io/geostorm-ai/geostorm
+docker run -d -p 8080:8080 -v geostorm-data:/app/data --name geostorm ghcr.io/geostorm-ai/geostorm
 ```
 
 <a href="https://github.com/geostorm-ai/geostorm">
