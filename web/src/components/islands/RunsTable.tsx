@@ -15,6 +15,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { useTriggerMonitoring } from "@/hooks/useProjects"
 import { useRuns } from "@/hooks/useRuns"
+import { useApiKeyStatus } from "@/hooks/useSettings"
 import { useRunProgress } from "@/hooks/useRunProgress"
 import { getRunDisplay } from "@/lib/runs"
 
@@ -28,6 +29,8 @@ export function RunsTable({ projectId, isDemo }: RunsTableProps) {
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
 	const { data, isLoading } = useRuns(projectId, { limit, enablePolling: true })
 	const triggerMonitoring = useTriggerMonitoring(projectId)
+	const { data: apiKeyStatus } = useApiKeyStatus()
+	const noApiKey = !isDemo && apiKeyStatus?.configured === false
 
 	const runs = data?.items ?? []
 	const total = data?.total ?? 0
@@ -75,11 +78,12 @@ export function RunsTable({ projectId, isDemo }: RunsTableProps) {
 						<CardTitle>Monitoring Runs</CardTitle>
 						<Button
 							size="sm"
-							onClick={() => triggerMonitoring.mutate()}
+							onClick={() => noApiKey ? window.location.assign("/settings") : triggerMonitoring.mutate()}
 							disabled={isDemo || triggerMonitoring.isPending}
+							variant={noApiKey ? "outline" : "default"}
 						>
 							<Play className="mr-1 h-4 w-4" />
-							{triggerMonitoring.isPending ? "Starting..." : "Monitor Now"}
+							{triggerMonitoring.isPending ? "Starting..." : noApiKey ? "Configure API Key" : "Monitor Now"}
 						</Button>
 					</div>
 				</CardHeader>

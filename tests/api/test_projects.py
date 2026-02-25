@@ -251,13 +251,32 @@ async def test_trigger_monitor(tmp_path):
     mock_monitor = AsyncMock()
     with patch("src.routes.projects.get_db_connection", side_effect=fake), \
          patch("src.routes.deps.get_db_connection", side_effect=fake), \
-         patch("src.routes.projects.execute_monitoring_run", mock_monitor):
+         patch("src.routes.projects.execute_monitoring_run", mock_monitor), \
+         patch("src.routes.projects.get_available_providers", AsyncMock(return_value=["openrouter"])):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/projects/proj-1/monitor")
             assert resp.status_code == 202
+
+
+@pytest.mark.asyncio
+async def test_trigger_monitor_no_api_key_returns_400(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    await _init_db(db_path)
+
+    fake = _fake_db_conn(db_path)
+    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
+         patch("src.routes.deps.get_db_connection", side_effect=fake), \
+         patch("src.routes.projects.get_available_providers", AsyncMock(return_value=[])):
+        test_app = FastAPI()
+        test_app.include_router(router)
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post("/api/projects/proj-1/monitor")
+            assert resp.status_code == 400
+            assert "No API key configured" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio

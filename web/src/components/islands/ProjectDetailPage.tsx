@@ -7,7 +7,33 @@ import { ProjectTabs } from "./ProjectTabs"
 import { SignalPanel } from "./SignalPanel"
 import { apiFetch } from "@/lib/api"
 import { useRuns } from "@/hooks/useRuns"
+import { useApiKeyStatus } from "@/hooks/useSettings"
 import type { ProjectDetail } from "@/schemas/project"
+
+function ApiKeyBanner() {
+	const { data: apiKeyStatus, isLoading } = useApiKeyStatus()
+
+	if (isLoading || apiKeyStatus?.configured !== false) return null
+
+	return (
+		<div className="border-b bg-amber-50 px-4 py-3 dark:bg-amber-950/50">
+			<div className="flex items-center gap-3">
+				<div className="flex-1">
+					<p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+						No API key configured. Monitoring runs cannot start.{" "}
+						<a
+							href="/settings"
+							className="ml-1 underline underline-offset-4 hover:text-amber-700 dark:hover:text-amber-300"
+						>
+							Add your OpenRouter API key in Settings
+						</a>{" "}
+						to begin monitoring.
+					</p>
+				</div>
+			</div>
+		</div>
+	)
+}
 
 function DemoBanner() {
 	const { data: setupStatus } = useQuery({
@@ -99,6 +125,7 @@ function ProjectDetailPageInner() {
 	return (
 		<>
 			{project.is_demo && <DemoBanner />}
+			{!project.is_demo && <ApiKeyBanner />}
 			<div className="space-y-6 p-6">
 				<div className="flex items-center justify-between">
 					<div>
