@@ -8,8 +8,9 @@ import { defineConfig } from "astro/config"
 function spaFallback() {
 	return {
 		name: "spa-fallback",
-		configureServer(/** @type {import('vite').ViteDevServer} */ server) {
-			server.middlewares.use((req, _res, next) => {
+		/** @param {any} server */
+		configureServer(server) {
+			server.middlewares.use((/** @type {any} */ req, /** @type {any} */ _res, /** @type {any} */ next) => {
 				if (
 					req.url &&
 					req.url.startsWith("/projects/") &&
