@@ -170,7 +170,7 @@ class TestExecuteMonitoringRun:
         mock_prompt = _mock_send_prompt()
 
         with (
-            patch("src.scheduler.get_db_connection", side_effect=_fake_db_conn(db_path)),
+            patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)),
             patch("src.scheduler.send_prompt", mock_prompt),
             patch("src.scheduler.asyncio.sleep", new_callable=AsyncMock),
         ):
@@ -222,7 +222,7 @@ class TestExecuteMonitoringRun:
         )
 
         with (
-            patch("src.scheduler.get_db_connection", side_effect=_fake_db_conn(db_path)),
+            patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)),
             patch("src.scheduler.send_prompt", mock_prompt),
             patch("src.scheduler.asyncio.sleep", new_callable=AsyncMock),
         ):
@@ -265,7 +265,7 @@ class TestExecuteMonitoringRun:
         finally:
             await db.close()
 
-        with patch("src.scheduler.get_db_connection", side_effect=_fake_db_conn(db_path)):
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
             run_id = await execute_monitoring_run(project_id="proj-empty")
 
         assert run_id is not None

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import HTTPException
 
-from src.database import get_db_connection
+from src.container import project_repo
 
 if TYPE_CHECKING:
     import aiosqlite
@@ -14,11 +14,7 @@ if TYPE_CHECKING:
 
 async def get_project_or_404(project_id: str) -> aiosqlite.Row:
     """Fetch a project row by ID, raising 404 if not found or soft-deleted."""
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL", (project_id,),
-        )
-        row = await cursor.fetchone()
+    row = await project_repo.get_project(project_id)
     if not row:
         raise HTTPException(status_code=404, detail="Project not found")
     return row

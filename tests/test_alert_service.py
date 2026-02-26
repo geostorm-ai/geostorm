@@ -8,15 +8,8 @@ from unittest.mock import patch
 
 import aiosqlite
 
+from src.container import alert_service
 from src.models import AlertChannel, AlertSeverity, AlertType
-from src.services.alert_service import (
-    acknowledge_alert,
-    delete_alert_config,
-    get_alert,
-    get_alert_configs,
-    list_alerts,
-    upsert_alert_config,
-)
 
 _MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations" / "001_initial_schema.sql"
 
@@ -95,8 +88,8 @@ class TestGetAlert:
         await _init_db(db_path)
         await _seed_alerts(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            alert = await get_alert("a-1")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            alert = await alert_service.get_alert("a-1")
 
         assert alert is not None
         assert alert.id == "a-1"
@@ -108,8 +101,8 @@ class TestGetAlert:
         db_path = str(tmp_path / "test.db")
         await _init_db(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            alert = await get_alert("nonexistent")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            alert = await alert_service.get_alert("nonexistent")
 
         assert alert is None
 
@@ -125,8 +118,8 @@ class TestListAlerts:
         await _init_db(db_path)
         await _seed_alerts(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            alerts = await list_alerts("proj-1")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            alerts = await alert_service.list_alerts("proj-1")
 
         assert len(alerts) == 5
 
@@ -136,8 +129,8 @@ class TestListAlerts:
         await _init_db(db_path)
         await _seed_alerts(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            alerts = await list_alerts("proj-1", severity=AlertSeverity.WARNING)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            alerts = await alert_service.list_alerts("proj-1", severity=AlertSeverity.WARNING)
 
         # Expect 4: two critical + two warning alerts
         assert len(alerts) == 4
@@ -150,8 +143,8 @@ class TestListAlerts:
         await _init_db(db_path)
         await _seed_alerts(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            alerts = await list_alerts("proj-1", severity=AlertSeverity.CRITICAL)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            alerts = await alert_service.list_alerts("proj-1", severity=AlertSeverity.CRITICAL)
 
         assert len(alerts) == 2
         assert all(a.severity == AlertSeverity.CRITICAL for a in alerts)
@@ -161,8 +154,8 @@ class TestListAlerts:
         await _init_db(db_path)
         await _seed_alerts(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            alerts = await list_alerts("proj-1", acknowledged=True)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            alerts = await alert_service.list_alerts("proj-1", acknowledged=True)
 
         assert len(alerts) == 2
         assert all(a.is_acknowledged for a in alerts)
@@ -172,8 +165,8 @@ class TestListAlerts:
         await _init_db(db_path)
         await _seed_alerts(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            alerts = await list_alerts("proj-1", acknowledged=False)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            alerts = await alert_service.list_alerts("proj-1", acknowledged=False)
 
         assert len(alerts) == 3
         assert all(not a.is_acknowledged for a in alerts)
@@ -183,8 +176,8 @@ class TestListAlerts:
         await _init_db(db_path)
         await _seed_alerts(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            alerts = await list_alerts("proj-1", limit=2, offset=0)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            alerts = await alert_service.list_alerts("proj-1", limit=2, offset=0)
 
         assert len(alerts) == 2
 
@@ -193,8 +186,8 @@ class TestListAlerts:
         await _init_db(db_path)
         await _seed_alerts(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            alerts = await list_alerts("proj-unknown")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            alerts = await alert_service.list_alerts("proj-unknown")
 
         assert alerts == []
 
@@ -210,8 +203,8 @@ class TestAcknowledgeAlert:
         await _init_db(db_path)
         await _seed_alerts(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            result = await acknowledge_alert("a-1", acknowledged_by="test-user")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            result = await alert_service.acknowledge_alert("a-1", acknowledged_by="test-user")
 
         assert result is True
 
@@ -231,8 +224,8 @@ class TestAcknowledgeAlert:
         db_path = str(tmp_path / "test.db")
         await _init_db(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            result = await acknowledge_alert("nonexistent")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            result = await alert_service.acknowledge_alert("nonexistent")
 
         assert result is False
 
@@ -247,8 +240,8 @@ class TestAlertConfigCrud:
         db_path = str(tmp_path / "test.db")
         await _init_db(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            config_id = await upsert_alert_config(
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            config_id = await alert_service.upsert_alert_config(
                 project_id="proj-1",
                 channel=AlertChannel.SLACK,
                 endpoint="https://hooks.slack.com/test",
@@ -277,8 +270,8 @@ class TestAlertConfigCrud:
         db_path = str(tmp_path / "test.db")
         await _init_db(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            config_id1 = await upsert_alert_config(
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            config_id1 = await alert_service.upsert_alert_config(
                 project_id="proj-1",
                 channel=AlertChannel.SLACK,
                 endpoint="https://hooks.slack.com/test",
@@ -286,7 +279,7 @@ class TestAlertConfigCrud:
                 min_severity=AlertSeverity.INFO,
             )
             # Same project+channel+endpoint -> should update, not create
-            config_id2 = await upsert_alert_config(
+            config_id2 = await alert_service.upsert_alert_config(
                 project_id="proj-1",
                 channel=AlertChannel.SLACK,
                 endpoint="https://hooks.slack.com/test",
@@ -311,10 +304,10 @@ class TestAlertConfigCrud:
         db_path = str(tmp_path / "test.db")
         await _init_db(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            await upsert_alert_config("proj-1", AlertChannel.SLACK, "https://slack.test", [])
-            await upsert_alert_config("proj-1", AlertChannel.EMAIL, "user@test.com", [])
-            configs = await get_alert_configs("proj-1")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            await alert_service.upsert_alert_config("proj-1", AlertChannel.SLACK, "https://slack.test", [])
+            await alert_service.upsert_alert_config("proj-1", AlertChannel.EMAIL, "user@test.com", [])
+            configs = await alert_service.get_alert_configs("proj-1")
 
         assert len(configs) == 2
         channels = {c.channel for c in configs}
@@ -324,8 +317,8 @@ class TestAlertConfigCrud:
         db_path = str(tmp_path / "test.db")
         await _init_db(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            configs = await get_alert_configs("proj-unknown")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            configs = await alert_service.get_alert_configs("proj-unknown")
 
         assert configs == []
 
@@ -333,9 +326,9 @@ class TestAlertConfigCrud:
         db_path = str(tmp_path / "test.db")
         await _init_db(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            config_id = await upsert_alert_config("proj-1", AlertChannel.WEBHOOK, "https://wh.test", [])
-            result = await delete_alert_config(config_id)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            config_id = await alert_service.upsert_alert_config("proj-1", AlertChannel.WEBHOOK, "https://wh.test", [])
+            result = await alert_service.delete_alert_config(config_id)
 
         assert result is True
 
@@ -352,7 +345,7 @@ class TestAlertConfigCrud:
         db_path = str(tmp_path / "test.db")
         await _init_db(db_path)
 
-        with patch("src.services.alert_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            result = await delete_alert_config("nonexistent")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            result = await alert_service.delete_alert_config("nonexistent")
 
         assert result is False

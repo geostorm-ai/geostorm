@@ -7,7 +7,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 
 from src.config import get_settings
-from src.database import get_db_connection
+from src.container import settings_repo
 from src.llm.base import LLMError, ProviderType
 
 logger = logging.getLogger(__name__)
@@ -25,16 +25,9 @@ async def get_api_key(provider_type: ProviderType) -> str | None:
     db_key = _PROVIDER_KEY_MAP.get(provider_type)
     if db_key:
         try:
-            async with get_db_connection() as db:
-                cursor = await db.execute(
-                    "SELECT value FROM settings WHERE key = ?",
-                    (db_key,),
-                )
-                row = await cursor.fetchone()
-                if row:
-                    value = row[0]
-                    if isinstance(value, str) and value.strip():
-                        return value.strip()
+            value = await settings_repo.get_setting(db_key)
+            if value and value.strip():
+                return value.strip()
         except Exception:  # noqa: BLE001
             logger.debug("Could not read API key from database for %s", provider_type)
 
@@ -66,18 +59,12 @@ async def create_model(provider_type: ProviderType, model_id: str) -> OpenAIChat
 async def get_available_providers() -> list[ProviderType]:
     """Return list of provider types that have configured API keys."""
     all_setting_keys = list(_PROVIDER_KEY_MAP.values())
-    db_keys: set[str] = set()
 
     try:
-        placeholders = ", ".join("?" for _ in all_setting_keys)
-        async with get_db_connection() as db:
-            cursor = await db.execute(
-                f"SELECT key FROM settings WHERE key IN ({placeholders}) AND value IS NOT NULL AND value != ''",
-                all_setting_keys,
-            )
-            db_keys = {row[0] for row in await cursor.fetchall()}
+        db_keys = await settings_repo.get_configured_keys(all_setting_keys)
     except Exception:  # noqa: BLE001
         logger.debug("Could not read API keys from database")
+        db_keys = set()
 
     settings = get_settings()
     available: list[ProviderType] = []

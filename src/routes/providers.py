@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response
 
-from src.database import get_db_connection
+from src.container import provider_service
 from src.routes.deps import get_project_or_404, get_writable_project_or_403
 from src.schemas import (
     CreateProviderRequest,
@@ -22,12 +22,7 @@ router = APIRouter(prefix="/api")
 @router.get("/projects/{project_id}/providers")
 async def list_providers(project_id: str) -> list[LLMProviderResponse]:
     await get_project_or_404(project_id)
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "SELECT * FROM llm_providers WHERE project_id = ? ORDER BY created_at",
-            (project_id,),
-        )
-        rows = await cursor.fetchall()
+    rows = await provider_service.list_providers(project_id)
     return [
         LLMProviderResponse(
             id=row["id"],
@@ -47,19 +42,11 @@ async def create_provider(project_id: str, body: CreateProviderRequest) -> LLMPr
     await get_writable_project_or_403(project_id)
     provider_id = uuid.uuid4().hex
     now = datetime.now(tz=UTC).isoformat()
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "SELECT id FROM llm_providers WHERE project_id = ? AND provider_name = ? AND model_name = ?",
-            (project_id, body.provider_name, body.model_name),
-        )
-        if await cursor.fetchone():
-            raise HTTPException(status_code=409, detail="Provider with this model already exists")
-        await db.execute(
-            "INSERT INTO llm_providers (id, project_id, provider_name, model_name, is_enabled, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, 1, ?, ?)",
-            (provider_id, project_id, body.provider_name, body.model_name, now, now),
-        )
-        await db.commit()
+    existing = await provider_service.create_provider(
+        provider_id, project_id, body.provider_name, body.model_name, now,
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="Provider with this model already exists")
     return LLMProviderResponse(
         id=provider_id,
         project_id=project_id,
@@ -87,24 +74,9 @@ async def update_provider(
         raise HTTPException(status_code=400, detail="No fields to update")
 
     updates["updated_at"] = datetime.now(tz=UTC).isoformat()
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
-    values = [*list(updates.values()), provider_id, project_id]
-
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            f"UPDATE llm_providers SET {set_clause} WHERE id = ? AND project_id = ?",
-            values,
-        )
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Provider not found")
-        await db.commit()
-
-        cursor = await db.execute(
-            "SELECT * FROM llm_providers WHERE id = ? AND project_id = ?",
-            (provider_id, project_id),
-        )
-        row = await cursor.fetchone()
-
+    rowcount, row = await provider_service.update_provider(provider_id, project_id, updates)
+    if rowcount == 0:
+        raise HTTPException(status_code=404, detail="Provider not found")
     if not row:
         raise HTTPException(status_code=404, detail="Provider not found")
     return LLMProviderResponse(
@@ -121,12 +93,7 @@ async def update_provider(
 @router.delete("/projects/{project_id}/providers/{provider_id}")
 async def delete_provider(project_id: str, provider_id: str) -> Response:
     await get_writable_project_or_403(project_id)
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "DELETE FROM llm_providers WHERE id = ? AND project_id = ?",
-            (provider_id, project_id),
-        )
-        await db.commit()
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Provider not found")
+    rowcount = await provider_service.delete_provider(provider_id, project_id)
+    if rowcount == 0:
+        raise HTTPException(status_code=404, detail="Provider not found")
     return Response(status_code=204)

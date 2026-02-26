@@ -7,16 +7,12 @@ import logging
 import logfire
 
 from src.config import Settings, get_settings
+from src.container import alert_service, project_repo
 from src.models import Alert, AlertChannel, AlertSeverity, AlertType
 from src.notifications.email import SmtpSettings, send_email_alert
 from src.notifications.slack import send_slack_alert
 from src.notifications.webhook import send_webhook_alert
-from src.services.alert_service import (
-    SEVERITY_ORDER,
-    get_alert,
-    get_alert_configs,
-    get_project_name,
-)
+from src.services.alert_service import SEVERITY_ORDER
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +65,7 @@ async def _dispatch_with_fallback(
 ) -> None:
     """Send alerts via env Slack webhook when no configs exist."""
     for alert_id in alert_ids:
-        alert = await get_alert(alert_id)
+        alert = await alert_service.get_alert(alert_id)
         if not alert:
             continue
         try:
@@ -89,9 +85,9 @@ async def dispatch_alerts(project_id: str, alert_ids: list[str]) -> None:
         return
 
     with logfire.span('dispatch alerts', project_id=project_id, alert_count=len(alert_ids)):
-        configs = await get_alert_configs(project_id)
+        configs = await alert_service.get_alert_configs(project_id)
         settings = get_settings()
-        project_name = await get_project_name(project_id)
+        project_name = await project_repo.get_project_name(project_id)
 
         # Fallback: if no configs but slack_webhook_url is set in env, use that
         if not configs and settings.slack_webhook_url:
@@ -109,7 +105,7 @@ async def dispatch_alerts(project_id: str, alert_ids: list[str]) -> None:
             return
 
         for alert_id in alert_ids:
-            alert = await get_alert(alert_id)
+            alert = await alert_service.get_alert(alert_id)
             if not alert:
                 logger.warning("Alert %s not found, skipping dispatch", alert_id)
                 continue

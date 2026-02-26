@@ -70,8 +70,7 @@ async def _seed_alerts(db_path):
 def _patches(db_path: str):
     fake = _fake_db_conn(db_path)
     return (
-        patch("src.routes.deps.get_db_connection", side_effect=fake),
-        patch("src.services.alert_service.get_db_connection", side_effect=fake),
+        patch("src.database.get_db_connection", side_effect=fake),
     )
 
 
@@ -81,8 +80,8 @@ async def test_list_alerts(tmp_path):
     await _init_db(db_path)
     await _seed_alerts(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -100,8 +99,8 @@ async def test_list_alerts_filter_severity(tmp_path):
     await _init_db(db_path)
     await _seed_alerts(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -124,8 +123,8 @@ async def test_list_alerts_filter_acknowledged(tmp_path):
     await _init_db(db_path)
     await _seed_alerts(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -147,8 +146,8 @@ async def test_acknowledge_alert(tmp_path):
     await _init_db(db_path)
     await _seed_alerts(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -163,8 +162,8 @@ async def test_acknowledge_missing_alert(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -178,8 +177,8 @@ async def test_get_alert_configs(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -197,8 +196,8 @@ async def test_update_alert_configs(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)

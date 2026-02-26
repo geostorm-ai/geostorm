@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException
 
-from src.database import get_db_connection
+from src.container import schedule_service
 from src.routes.deps import get_project_or_404, get_writable_project_or_403
 from src.schemas import ScheduleResponse, UpdateScheduleRequest
 
@@ -17,25 +17,10 @@ router = APIRouter(prefix="/api")
 @router.get("/projects/{project_id}/schedule")
 async def get_schedule(project_id: str) -> ScheduleResponse:
     await get_project_or_404(project_id)
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "SELECT * FROM project_schedules WHERE project_id = ?",
-            [project_id],
-        )
-        row = await cursor.fetchone()
-    if not row:
+    result = await schedule_service.get_schedule(project_id)
+    if not result:
         raise HTTPException(status_code=404, detail="Schedule not found")
-    return ScheduleResponse(
-        id=row["id"],
-        project_id=row["project_id"],
-        hour_of_day=row["hour_of_day"],
-        days_of_week=json.loads(row["days_of_week_json"]),
-        is_active=row["is_active"],
-        last_run_at=row["last_run_at"],
-        next_run_at=row["next_run_at"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-    )
+    return ScheduleResponse(**result)
 
 
 @router.patch("/projects/{project_id}/schedule")
@@ -65,33 +50,10 @@ async def update_schedule(
     now = datetime.now(tz=UTC).isoformat()
     set_clauses.append("updated_at = ?")
     params.append(now)
-
     params.append(project_id)
 
-    async with get_db_connection() as db:
-        await db.execute(
-            f"UPDATE project_schedules SET {', '.join(set_clauses)} WHERE project_id = ?",
-            params,
-        )
-        await db.commit()
-
-        cursor = await db.execute(
-            "SELECT * FROM project_schedules WHERE project_id = ?",
-            [project_id],
-        )
-        row = await cursor.fetchone()
-
-    if not row:
+    result = await schedule_service.update_schedule(project_id, set_clauses, params)
+    if not result:
         raise HTTPException(status_code=404, detail="Schedule not found")
 
-    return ScheduleResponse(
-        id=row["id"],
-        project_id=row["project_id"],
-        hour_of_day=row["hour_of_day"],
-        days_of_week=json.loads(row["days_of_week_json"]),
-        is_active=row["is_active"],
-        last_run_at=row["last_run_at"],
-        next_run_at=row["next_run_at"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-    )
+    return ScheduleResponse(**result)

@@ -7,15 +7,9 @@ from unittest.mock import patch
 
 import aiosqlite
 
+from src.container import scoring_service
 from src.models import MentionType, TrendDirection
-from src.services.scoring_service import (
-    ScoreResult,
-    calculate_and_store_scores,
-    calculate_overall_score,
-    calculate_run_scores,
-    calculate_trend,
-    store_scores,
-)
+from src.services.scoring_service import ScoreResult, calculate_overall_score, calculate_trend
 
 _MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations" / "001_initial_schema.sql"
 
@@ -154,8 +148,8 @@ class TestCalculateRunScores:
         db_path = str(tmp_path / "test.db")
         await _setup_test_db(db_path)
 
-        with patch("src.services.scoring_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            scores = await calculate_run_scores("run-1", "proj-1")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            scores = await scoring_service.calculate_run_scores("run-1", "proj-1")
 
         # Should have per-group score + aggregate
         assert len(scores) >= 1
@@ -195,8 +189,8 @@ class TestCalculateRunScores:
         finally:
             await db.close()
 
-        with patch("src.services.scoring_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            scores = await calculate_run_scores("run-p", "proj-1")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            scores = await scoring_service.calculate_run_scores("run-p", "proj-1")
 
         group = next(s for s in scores if s.term_id == "t1")
         assert group.recommendation_share == 1.0
@@ -228,8 +222,8 @@ class TestCalculateRunScores:
         finally:
             await db.close()
 
-        with patch("src.services.scoring_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            scores = await calculate_run_scores("run-z", "proj-1")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            scores = await scoring_service.calculate_run_scores("run-z", "proj-1")
 
         group = next(s for s in scores if s.term_id == "t1")
         assert group.recommendation_share == 0.0
@@ -266,8 +260,8 @@ class TestCalculateRunScores:
         finally:
             await db.close()
 
-        with patch("src.services.scoring_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            scores = await calculate_run_scores("run-pos", "proj-1")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            scores = await scoring_service.calculate_run_scores("run-pos", "proj-1")
 
         group = next(s for s in scores if s.term_id == "t1")
         assert group.position_avg == 3.0
@@ -314,8 +308,8 @@ class TestCalculateRunScores:
         finally:
             await db.close()
 
-        with patch("src.services.scoring_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            scores = await calculate_run_scores("run-d", "proj-1")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            scores = await scoring_service.calculate_run_scores("run-d", "proj-1")
 
         group = next(s for s in scores if s.term_id == "t1")
         assert group.recommendation_share == 0.8
@@ -327,8 +321,8 @@ class TestCalculateRunScores:
         db_path = str(tmp_path / "test_err.db")
         await _setup_test_db(db_path)
 
-        with patch("src.services.scoring_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            scores = await calculate_run_scores("run-1", "proj-1")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            scores = await scoring_service.calculate_run_scores("run-1", "proj-1")
 
         # resp-4 has error so only 3 responses counted
         group = next(s for s in scores if s.term_id == "term-1")
@@ -378,8 +372,8 @@ class TestStoreScores:
             ),
         ]
 
-        with patch("src.services.scoring_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            ids = await store_scores("proj-1", results)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            ids = await scoring_service.store_scores("proj-1", results)
 
         assert len(ids) == 2
 
@@ -407,8 +401,8 @@ class TestCalculateAndStoreScores:
         db_path = str(tmp_path / "test_pipeline.db")
         await _setup_test_db(db_path)
 
-        with patch("src.services.scoring_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            ids = await calculate_and_store_scores("run-1", "proj-1")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            ids = await scoring_service.calculate_and_store_scores("run-1", "proj-1")
 
         assert len(ids) >= 2  # at least one group + aggregate
 

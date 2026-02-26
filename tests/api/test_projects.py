@@ -107,8 +107,7 @@ async def test_list_projects_empty(tmp_path):
         await db.close()
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -124,8 +123,7 @@ async def test_list_projects_seeded(tmp_path):
     await _init_db(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -145,8 +143,7 @@ async def test_get_project_detail(tmp_path):
     await _seed_schedule(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -165,8 +162,7 @@ async def test_get_project_404(tmp_path):
     await _init_db(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -187,8 +183,7 @@ async def test_create_project(tmp_path):
         await db.close()
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -213,8 +208,7 @@ async def test_patch_project(tmp_path):
     await _init_db(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -232,8 +226,7 @@ async def test_patch_demo_project_403(tmp_path):
     await _seed_demo_project(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -249,10 +242,9 @@ async def test_trigger_monitor(tmp_path):
 
     fake = _fake_db_conn(db_path)
     mock_monitor = AsyncMock()
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake), \
-         patch("src.routes.projects.execute_monitoring_run", mock_monitor), \
-         patch("src.routes.projects.get_available_providers", AsyncMock(return_value=["openrouter"])):
+    with patch("src.database.get_db_connection", side_effect=fake), \
+         patch("src.scheduler.execute_monitoring_run", mock_monitor), \
+         patch("src.llm.factory.get_available_providers", AsyncMock(return_value=["openrouter"])):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -267,9 +259,8 @@ async def test_trigger_monitor_no_api_key_returns_400(tmp_path):
     await _init_db(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake), \
-         patch("src.routes.projects.get_available_providers", AsyncMock(return_value=[])):
+    with patch("src.database.get_db_connection", side_effect=fake), \
+         patch("src.llm.factory.get_available_providers", AsyncMock(return_value=[])):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -286,8 +277,7 @@ async def test_get_brand(tmp_path):
     await _seed_brand(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -305,8 +295,7 @@ async def test_update_brand(tmp_path):
     await _seed_brand(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -324,8 +313,7 @@ async def test_list_competitors(tmp_path):
     await _seed_competitor(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -342,8 +330,7 @@ async def test_create_competitor(tmp_path):
     await _init_db(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -362,8 +349,7 @@ async def test_delete_competitor(tmp_path):
     await _seed_competitor(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -378,8 +364,7 @@ async def test_delete_project_soft_delete(tmp_path):
     await _init_db(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -404,8 +389,7 @@ async def test_delete_demo_project_403(tmp_path):
     await _seed_demo_project(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -421,8 +405,7 @@ async def test_demo_write_protection(tmp_path):
     await _seed_demo_project(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.projects.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)

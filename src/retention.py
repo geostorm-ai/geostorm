@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 import logfire
 
-from src.database import get_db_connection
+from src.container import response_repo
 
 logger = logging.getLogger(__name__)
 
@@ -25,17 +25,9 @@ async def cleanup_old_responses(retention_days: int = DEFAULT_RETENTION_DAYS) ->
     """
     with logfire.span('retention cleanup', retention_days=retention_days):
         cutoff = (datetime.now(tz=UTC) - timedelta(days=retention_days)).isoformat()
-        cleaned = 0
 
         try:
-            async with get_db_connection() as db:
-                cursor = await db.execute(
-                    "UPDATE responses SET response_text = ''"
-                    " WHERE created_at < ? AND error_message IS NULL AND response_text != ''",
-                    (cutoff,),
-                )
-                cleaned = cursor.rowcount
-                await db.commit()
+            cleaned = await response_repo.cleanup_old_responses(cutoff)
         except Exception:
             logger.exception("Failed to clean up old responses")
             return 0

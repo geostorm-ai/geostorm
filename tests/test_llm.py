@@ -209,54 +209,33 @@ class TestSendStructuredPrompt:
 class TestGetApiKey:
     async def test_db_key_takes_precedence(self):
         """API key from DB should take precedence over env var."""
-        with patch("src.llm.factory.get_settings") as mock_settings:
+        with (
+            patch("src.llm.factory.settings_repo.get_setting", new_callable=AsyncMock, return_value="db-key"),
+            patch("src.llm.factory.get_settings") as mock_settings,
+        ):
             mock_settings.return_value.openrouter_api_key = "env-key"
-
-            with patch("src.llm.factory.get_db_connection") as mock_db_ctx:
-                mock_db = AsyncMock()
-                mock_cursor = AsyncMock()
-                mock_cursor.fetchone.return_value = ("db-key",)
-                mock_db.execute.return_value = mock_cursor
-                mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-                mock_db.__aexit__ = AsyncMock(return_value=False)
-                mock_db_ctx.return_value = mock_db
-
-                result = await get_api_key(ProviderType.OPENROUTER)
+            result = await get_api_key(ProviderType.OPENROUTER)
 
         assert result == "db-key"
 
     async def test_env_fallback_when_no_db_key(self):
         """Falls back to env var when DB has no key."""
-        with patch("src.llm.factory.get_db_connection") as mock_db_ctx:
-            mock_db = AsyncMock()
-            mock_cursor = AsyncMock()
-            mock_cursor.fetchone.return_value = None
-            mock_db.execute.return_value = mock_cursor
-            mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-            mock_db.__aexit__ = AsyncMock(return_value=False)
-            mock_db_ctx.return_value = mock_db
-
-            with patch("src.llm.factory.get_settings") as mock_settings:
-                mock_settings.return_value.openrouter_api_key = "env-key"
-
-                result = await get_api_key(ProviderType.OPENROUTER)
+        with (
+            patch("src.llm.factory.settings_repo.get_setting", new_callable=AsyncMock, return_value=None),
+            patch("src.llm.factory.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.openrouter_api_key = "env-key"
+            result = await get_api_key(ProviderType.OPENROUTER)
 
         assert result == "env-key"
 
     async def test_returns_none_when_no_key(self):
         """Returns None when neither DB nor env has a key."""
-        with patch("src.llm.factory.get_db_connection") as mock_db_ctx:
-            mock_db = AsyncMock()
-            mock_cursor = AsyncMock()
-            mock_cursor.fetchone.return_value = None
-            mock_db.execute.return_value = mock_cursor
-            mock_db.__aenter__ = AsyncMock(return_value=mock_db)
-            mock_db.__aexit__ = AsyncMock(return_value=False)
-            mock_db_ctx.return_value = mock_db
-
-            with patch("src.llm.factory.get_settings") as mock_settings:
-                mock_settings.return_value.openrouter_api_key = None
-
-                result = await get_api_key(ProviderType.OPENROUTER)
+        with (
+            patch("src.llm.factory.settings_repo.get_setting", new_callable=AsyncMock, return_value=None),
+            patch("src.llm.factory.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value.openrouter_api_key = None
+            result = await get_api_key(ProviderType.OPENROUTER)
 
         assert result is None

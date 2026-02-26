@@ -355,9 +355,9 @@ class TestDispatchAlerts:
         }
 
         with (
-            patch(f"{_D}.get_alert_configs", new_callable=AsyncMock, return_value=[config]),
-            patch(f"{_D}.get_alert", new_callable=AsyncMock, side_effect=alert_map.get),
-            patch(f"{_D}.get_project_name", new_callable=AsyncMock, return_value="Test Project"),
+            patch(f"{_D}.alert_service.get_alert_configs", new_callable=AsyncMock, return_value=[config]),
+            patch(f"{_D}.alert_service.get_alert", new_callable=AsyncMock, side_effect=alert_map.get),
+            patch(f"{_D}.project_repo.get_project_name", new_callable=AsyncMock, return_value="Test Project"),
             patch(f"{_D}.get_settings") as mock_settings,
             patch(f"{_D}.send_slack_alert", new_callable=AsyncMock, return_value=True) as mock_slack,
         ):
@@ -395,9 +395,9 @@ class TestDispatchAlerts:
         }
 
         with (
-            patch(f"{_D}.get_alert_configs", new_callable=AsyncMock, return_value=[config]),
-            patch(f"{_D}.get_alert", new_callable=AsyncMock, side_effect=alert_map.get),
-            patch(f"{_D}.get_project_name", new_callable=AsyncMock, return_value="Test Project"),
+            patch(f"{_D}.alert_service.get_alert_configs", new_callable=AsyncMock, return_value=[config]),
+            patch(f"{_D}.alert_service.get_alert", new_callable=AsyncMock, side_effect=alert_map.get),
+            patch(f"{_D}.project_repo.get_project_name", new_callable=AsyncMock, return_value="Test Project"),
             patch(f"{_D}.get_settings") as mock_settings,
             patch(f"{_D}.send_webhook_alert", new_callable=AsyncMock, return_value=True) as mock_webhook,
         ):
@@ -425,9 +425,9 @@ class TestDispatchAlerts:
         )
 
         with (
-            patch(f"{_D}.get_alert_configs", new_callable=AsyncMock, return_value=[disabled_config]),
-            patch(f"{_D}.get_alert", new_callable=AsyncMock, return_value=alert),
-            patch(f"{_D}.get_project_name", new_callable=AsyncMock, return_value="Test Project"),
+            patch(f"{_D}.alert_service.get_alert_configs", new_callable=AsyncMock, return_value=[disabled_config]),
+            patch(f"{_D}.alert_service.get_alert", new_callable=AsyncMock, return_value=alert),
+            patch(f"{_D}.project_repo.get_project_name", new_callable=AsyncMock, return_value="Test Project"),
             patch(f"{_D}.get_settings") as mock_settings,
             patch(f"{_D}.send_slack_alert", new_callable=AsyncMock) as mock_slack,
         ):
@@ -437,7 +437,7 @@ class TestDispatchAlerts:
         mock_slack.assert_not_called()
 
     async def test_empty_alert_ids_returns_immediately(self):
-        with patch(f"{_D}.get_alert_configs", new_callable=AsyncMock) as mock_configs:
+        with patch(f"{_D}.alert_service.get_alert_configs", new_callable=AsyncMock) as mock_configs:
             await dispatch_alerts("proj-1", [])
 
         mock_configs.assert_not_called()
@@ -447,9 +447,9 @@ class TestDispatchAlerts:
         alert = _make_alert()
 
         with (
-            patch(f"{_D}.get_alert_configs", new_callable=AsyncMock, return_value=[]),
-            patch(f"{_D}.get_alert", new_callable=AsyncMock, return_value=alert),
-            patch(f"{_D}.get_project_name", new_callable=AsyncMock, return_value="Test Project"),
+            patch(f"{_D}.alert_service.get_alert_configs", new_callable=AsyncMock, return_value=[]),
+            patch(f"{_D}.alert_service.get_alert", new_callable=AsyncMock, return_value=alert),
+            patch(f"{_D}.project_repo.get_project_name", new_callable=AsyncMock, return_value="Test Project"),
             patch(f"{_D}.get_settings") as mock_settings,
             patch(f"{_D}.send_slack_alert", new_callable=AsyncMock, return_value=True) as mock_slack,
         ):
@@ -488,9 +488,12 @@ class TestDispatchAlerts:
         )
 
         with (
-            patch(f"{_D}.get_alert_configs", new_callable=AsyncMock, return_value=[slack_config, webhook_config]),
-            patch(f"{_D}.get_alert", new_callable=AsyncMock, return_value=alert),
-            patch(f"{_D}.get_project_name", new_callable=AsyncMock, return_value="Test Project"),
+            patch(
+                f"{_D}.alert_service.get_alert_configs",
+                new_callable=AsyncMock, return_value=[slack_config, webhook_config],
+            ),
+            patch(f"{_D}.alert_service.get_alert", new_callable=AsyncMock, return_value=alert),
+            patch(f"{_D}.project_repo.get_project_name", new_callable=AsyncMock, return_value="Test Project"),
             patch(f"{_D}.get_settings") as mock_settings,
             patch(f"{_D}.send_slack_alert", new_callable=AsyncMock, return_value=True) as mock_slack,
             patch(f"{_D}.send_webhook_alert", new_callable=AsyncMock, return_value=True) as mock_webhook,

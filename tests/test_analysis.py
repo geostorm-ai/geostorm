@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import aiosqlite
 
-from src.services.analysis import analyze_run
+from src.container import analysis_service
 
 _MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations" / "001_initial_schema.sql"
 
@@ -109,13 +109,8 @@ class TestAnalyzeRun:
 
         fake_conn = _fake_db_conn(db_path)
 
-        with (
-            patch("src.services.analysis.get_db_connection", side_effect=fake_conn),
-            patch("src.services.mention_service.get_db_connection", side_effect=fake_conn),
-            patch("src.services.scoring_service.get_db_connection", side_effect=fake_conn),
-            patch("src.services.change_detection.get_db_connection", side_effect=fake_conn),
-        ):
-            await analyze_run("run-1", "proj-1")
+        with patch("src.database.get_db_connection", side_effect=fake_conn):
+            await analysis_service.analyze_run("run-1", "proj-1")
 
         # Verify mentions were created
         db = await aiosqlite.connect(db_path)
@@ -141,16 +136,17 @@ class TestAnalyzeRun:
         mock_mentions = AsyncMock(side_effect=RuntimeError("boom"))
 
         with (
-            patch("src.services.analysis.get_db_connection", side_effect=fake_conn),
-            patch(
-                "src.services.analysis.detect_and_store_mentions_for_response",
+            patch("src.database.get_db_connection", side_effect=fake_conn),
+            patch.object(
+                analysis_service._mention_service,
+                "detect_and_store_mentions_for_response",
                 mock_mentions,
             ),
-            patch("src.services.analysis.calculate_and_store_scores", new_callable=AsyncMock),
-            patch("src.services.analysis.detect_and_store_alerts", new_callable=AsyncMock),
+            patch.object(analysis_service._scoring_service, "calculate_and_store_scores", new_callable=AsyncMock),
+            patch.object(analysis_service._change_detection_service, "detect_and_store_alerts", new_callable=AsyncMock),
         ):
             # Should complete without raising
-            await analyze_run("run-1", "proj-1")
+            await analysis_service.analyze_run("run-1", "proj-1")
 
     async def test_no_brand_graceful_handling(self, tmp_path):
         """When the project has no brand row, analyze_run returns gracefully."""
@@ -176,6 +172,6 @@ class TestAnalyzeRun:
 
         fake_conn = _fake_db_conn(db_path)
 
-        with patch("src.services.analysis.get_db_connection", side_effect=fake_conn):
+        with patch("src.database.get_db_connection", side_effect=fake_conn):
             # Should return without error
-            await analyze_run("run-nb", "proj-nobrand")
+            await analysis_service.analyze_run("run-nb", "proj-nobrand")

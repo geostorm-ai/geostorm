@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Any
 
 import logfire
 
-from src.database import get_db_connection
-from src.llm.base import LLMError, PromptRequest, PromptResponse, ProviderType, with_web_search
+from src.container import provider_repo, response_repo, run_repo, schedule_repo, term_repo
+from src.llm.base import LLMError, PromptRequest, ProviderType, with_web_search
 from src.llm.client import send_prompt
 from src.llm.prompt_service import generate_prompt, get_system_prompt
 from src.progress import RunPhase, RunProgressEvent, progress_bus
@@ -30,16 +30,7 @@ async def scheduling_loop() -> None:
         now = datetime.now(tz=UTC)
 
         try:
-            async with get_db_connection() as db:
-                cursor = await db.execute(
-                    """
-                    SELECT ps.id, ps.project_id, ps.hour_of_day, ps.days_of_week_json, ps.last_run_at
-                    FROM project_schedules ps
-                    JOIN projects p ON p.id = ps.project_id
-                    WHERE ps.is_active = 1 AND p.is_demo = 0 AND p.deleted_at IS NULL
-                    """,
-                )
-                schedules = await cursor.fetchall()
+            schedules = await schedule_repo.get_active_schedules()
 
             for schedule in schedules:
                 if should_run_schedule(schedule, now):
@@ -92,22 +83,19 @@ async def execute_monitoring_run(
     schedule_id: str | None = None,
     trigger_type: str = "manual",
 ) -> str:
-    """Execute a monitoring run for a project.
-
-    Creates a Run record, iterates over all (term x provider) combinations,
-    calls the LLM, and stores responses.
-    """
+    """Execute a monitoring run for a project."""
     run_id = uuid.uuid4().hex
     with logfire.span('monitoring run', run_id=run_id, project_id=project_id, trigger_type=trigger_type):
         now_iso = datetime.now(tz=UTC).isoformat()
-        terms, providers = await _load_run_inputs(project_id)
+        terms = await term_repo.list_active_term_ids_and_names(project_id)
+        providers = await provider_repo.list_enabled_providers(project_id)
 
         if not terms or not providers:
             logger.warning("No active terms or providers for project %s, skipping run", project_id)
             return run_id
 
         total_queries = len(terms) * len(providers)
-        await _create_run_record(run_id, project_id, trigger_type, total_queries, now_iso)
+        await run_repo.create_run(run_id, project_id, trigger_type, total_queries, now_iso)
 
         progress_bus.publish(RunProgressEvent(
             run_id=run_id, phase=RunPhase.preparing,
@@ -118,39 +106,6 @@ async def execute_monitoring_run(
         await _finalize_run(run_id, project_id, schedule_id, completed, failed)
 
         return run_id
-
-
-async def _load_run_inputs(project_id: str) -> tuple[Sequence[Any], Sequence[Any]]:
-    """Load active terms and enabled providers for a project."""
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "SELECT id, name FROM project_terms WHERE project_id = ? AND is_active = 1",
-            (project_id,),
-        )
-        terms = list(await cursor.fetchall())
-
-        cursor = await db.execute(
-            "SELECT provider_name, model_name FROM llm_providers WHERE project_id = ? AND is_enabled = 1",
-            (project_id,),
-        )
-        providers = list(await cursor.fetchall())
-
-    return terms, providers
-
-
-async def _create_run_record(
-    run_id: str, project_id: str, trigger_type: str, total_queries: int, now_iso: str,
-) -> None:
-    """Insert a new run record into the database."""
-    async with get_db_connection() as db:
-        await db.execute(
-            """
-            INSERT INTO runs (id, project_id, status, trigger_type, total_queries, started_at, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (run_id, project_id, "running", trigger_type, total_queries, now_iso, now_iso),
-        )
-        await db.commit()
 
 
 async def _execute_queries(
@@ -191,7 +146,7 @@ async def _execute_queries(
                 else:
                     failed_queries += 1
 
-                await _update_run_progress(run_id, completed_queries, failed_queries)
+                await run_repo.update_run_progress(run_id, completed_queries, failed_queries)
 
                 progress_bus.publish(RunProgressEvent(
                     run_id=run_id, phase=RunPhase.querying,
@@ -206,16 +161,6 @@ async def _execute_queries(
     ])
 
     return completed_queries, failed_queries
-
-
-async def _update_run_progress(run_id: str, completed: int, failed: int) -> None:
-    """Incrementally update run progress in the database after each query."""
-    async with get_db_connection() as db:
-        await db.execute(
-            "UPDATE runs SET completed_queries = ?, failed_queries = ? WHERE id = ?",
-            (completed, failed, run_id),
-        )
-        await db.commit()
 
 
 async def _execute_single_query(  # noqa: PLR0913
@@ -233,22 +178,32 @@ async def _execute_single_query(  # noqa: PLR0913
             provider_type = ProviderType(provider_name)
         except ValueError:
             logger.warning("Unknown provider type: %s", provider_name)
-            await _store_error_response(run_id, project_id, term_id, provider_name, model_name,
-                                        f"Unknown provider type: {provider_name}")
+            await response_repo.store_error_response(
+                run_id, project_id, term_id, provider_name, model_name,
+                f"Unknown provider type: {provider_name}",
+            )
             return False
 
         try:
             online_model = with_web_search(model_name)
             request = PromptRequest(prompt=prompt_text, model_id=online_model, system_prompt=system_prompt)
             response = await send_prompt(request, provider_type)
-            await _store_response(run_id, project_id, term_id, provider_name, model_name, response)
+            await response_repo.store_response(
+                run_id, project_id, term_id, provider_name, model_name,
+                response.text, response.latency_ms, response.prompt_tokens,
+                response.completion_tokens, response.cost_usd,
+            )
         except LLMError as e:
             logger.warning("LLM error for %s/%s: %s", provider_name, model_name, e)
-            await _store_error_response(run_id, project_id, term_id, provider_name, model_name, str(e))
+            await response_repo.store_error_response(
+                run_id, project_id, term_id, provider_name, model_name, str(e),
+            )
             return False
         except Exception:
             logger.exception("Unexpected error for %s/%s", provider_name, model_name)
-            await _store_error_response(run_id, project_id, term_id, provider_name, model_name, "Unexpected error")
+            await response_repo.store_error_response(
+                run_id, project_id, term_id, provider_name, model_name, "Unexpected error",
+            )
             return False
 
         return True
@@ -259,22 +214,10 @@ async def _finalize_run(run_id: str, project_id: str, schedule_id: str | None, c
     final_status = "completed" if completed > 0 else "failed"
     completed_at = datetime.now(tz=UTC).isoformat()
 
-    async with get_db_connection() as db:
-        await db.execute(
-            """
-            UPDATE runs SET status = ?, completed_queries = ?, failed_queries = ?, completed_at = ?
-            WHERE id = ?
-            """,
-            (final_status, completed, failed, completed_at, run_id),
-        )
+    await run_repo.finalize_run(run_id, final_status, completed, failed, completed_at)
 
-        if schedule_id:
-            await db.execute(
-                "UPDATE project_schedules SET last_run_at = ? WHERE id = ?",
-                (completed_at, schedule_id),
-            )
-
-        await db.commit()
+    if schedule_id:
+        await schedule_repo.update_last_run_at(schedule_id, completed_at)
 
     logger.info("Run %s finished: status=%s, completed=%d, failed=%d", run_id, final_status, completed, failed)
 
@@ -287,8 +230,8 @@ async def _finalize_run(run_id: str, project_id: str, schedule_id: str | None, c
             status="running",
         ))
         try:
-            from src.services.analysis import analyze_run  # noqa: PLC0415
-            await analyze_run(run_id, project_id)
+            from src.container import analysis_service  # noqa: PLC0415
+            await analysis_service.analyze_run(run_id, project_id)
         except Exception:
             logger.exception("Analysis pipeline failed for run %s", run_id)
 
@@ -298,58 +241,3 @@ async def _finalize_run(run_id: str, project_id: str, schedule_id: str | None, c
         completed=completed, failed=failed, total=total,
         status=final_status,
     ))
-
-
-async def _store_response(  # noqa: PLR0913
-    run_id: str,
-    project_id: str,
-    term_id: str,
-    provider_name: str,
-    model_name: str,
-    response: PromptResponse,
-) -> None:
-    """Store a successful LLM response in the database."""
-    response_id = uuid.uuid4().hex
-    now_iso = datetime.now(tz=UTC).isoformat()
-
-    async with get_db_connection() as db:
-        await db.execute(
-            """
-            INSERT INTO responses
-                (id, run_id, project_id, term_id, provider_name, model_name,
-                 response_text, latency_ms, token_count_prompt, token_count_completion,
-                 cost_usd, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                response_id, run_id, project_id, term_id, provider_name, model_name,
-                response.text, response.latency_ms, response.prompt_tokens, response.completion_tokens,
-                response.cost_usd, now_iso,
-            ),
-        )
-        await db.commit()
-
-
-async def _store_error_response(  # noqa: PLR0913
-    run_id: str,
-    project_id: str,
-    term_id: str,
-    provider_name: str,
-    model_name: str,
-    error_message: str,
-) -> None:
-    """Store a failed LLM response (dead-letter) in the database."""
-    response_id = uuid.uuid4().hex
-    now_iso = datetime.now(tz=UTC).isoformat()
-
-    async with get_db_connection() as db:
-        await db.execute(
-            """
-            INSERT INTO responses
-                (id, run_id, project_id, term_id, provider_name, model_name,
-                 response_text, error_message, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (response_id, run_id, project_id, term_id, provider_name, model_name, "", error_message, now_iso),
-        )
-        await db.commit()

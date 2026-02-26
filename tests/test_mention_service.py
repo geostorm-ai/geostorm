@@ -7,14 +7,9 @@ from unittest.mock import patch
 
 import aiosqlite
 
+from src.container import mention_service
 from src.models import MentionType
-from src.services.mention_service import (
-    DetectedMention,
-    detect_and_store_mentions_for_response,
-    detect_mentions,
-    parse_numbered_list,
-    store_mentions,
-)
+from src.services.mention_service import DetectedMention, detect_mentions, parse_numbered_list
 
 _MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations" / "001_initial_schema.sql"
 
@@ -234,8 +229,8 @@ class TestStoreMentions:
             ),
         ]
 
-        with patch("src.services.mention_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            ids = await store_mentions("resp-1", detected)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            ids = await mention_service.store_mentions("resp-1", detected)
 
         assert len(ids) == 2
 
@@ -260,8 +255,8 @@ class TestStoreMentions:
         db_path = str(tmp_path / "test.db")
         await _setup_test_db(db_path)
 
-        with patch("src.services.mention_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            ids = await store_mentions("resp-1", [])
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            ids = await mention_service.store_mentions("resp-1", [])
 
         assert ids == []
 
@@ -288,8 +283,8 @@ class TestDetectAndStoreMentionsForResponse:
 
         response_text = "1. Litestar\n2. Flask\n3. FastAPI"
 
-        with patch("src.services.mention_service.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            ids = await detect_and_store_mentions_for_response(
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            ids = await mention_service.detect_and_store_mentions_for_response(
                 response_id="resp-1",
                 response_text=response_text,
                 brand_name="FastAPI",

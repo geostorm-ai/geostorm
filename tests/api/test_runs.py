@@ -102,8 +102,7 @@ async def test_list_runs(tmp_path):
     await _seed_run(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.runs.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -122,8 +121,7 @@ async def test_list_runs_filter_status(tmp_path):
     await _seed_run(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.runs.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -141,8 +139,7 @@ async def test_list_runs_empty(tmp_path):
     await _init_db(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.runs.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -163,8 +160,7 @@ async def test_get_run_detail(tmp_path):
     await _seed_responses_and_mentions(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.runs.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -183,8 +179,7 @@ async def test_get_run_404(tmp_path):
     await _init_db(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.runs.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -201,8 +196,7 @@ async def test_list_responses(tmp_path):
     await _seed_responses_and_mentions(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.runs.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -222,8 +216,7 @@ async def test_get_perception(tmp_path):
     await _seed_perception(db_path)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.routes.runs.get_db_connection", side_effect=fake), \
-         patch("src.routes.deps.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)

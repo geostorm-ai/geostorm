@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
+from src.container import alert_service
 from src.models import AlertChannel, AlertSeverity
 from src.routes.deps import get_project_or_404, get_writable_project_or_403
 from src.schemas import (
@@ -13,13 +14,6 @@ from src.schemas import (
     AlertResponse,
     PaginatedResponse,
     UpdateAlertConfigRequest,
-)
-from src.services.alert_service import (
-    acknowledge_alert,
-    count_alerts,
-    get_alert_configs,
-    list_alerts,
-    upsert_alert_config,
 )
 
 router = APIRouter(prefix="/api")
@@ -35,7 +29,7 @@ async def get_alerts(
 ) -> PaginatedResponse[AlertResponse]:
     await get_project_or_404(project_id)
 
-    alerts = await list_alerts(
+    alerts = await alert_service.list_alerts(
         project_id,
         limit=limit,
         offset=offset,
@@ -43,7 +37,7 @@ async def get_alerts(
         acknowledged=acknowledged,
     )
 
-    total = await count_alerts(
+    total = await alert_service.count_alerts(
         project_id,
         severity=severity,
         acknowledged=acknowledged,
@@ -76,7 +70,7 @@ async def get_alerts(
 
 @router.post("/alerts/{alert_id}/acknowledge")
 async def post_acknowledge_alert(alert_id: str) -> dict[str, Any]:
-    result = await acknowledge_alert(alert_id)
+    result = await alert_service.acknowledge_alert(alert_id)
     if not result:
         raise HTTPException(status_code=404, detail="Alert not found")
     return {"status": "acknowledged"}
@@ -87,7 +81,7 @@ async def get_alert_config(
     project_id: str = Query(...),
 ) -> list[AlertConfigResponse]:
     await get_project_or_404(project_id)
-    configs = await get_alert_configs(project_id)
+    configs = await alert_service.get_alert_configs(project_id)
     return [
         AlertConfigResponse(
             id=c.id,
@@ -111,7 +105,7 @@ async def update_alert_config(
 ) -> list[AlertConfigResponse]:
     await get_writable_project_or_403(project_id)
     for c in body.configs:
-        await upsert_alert_config(
+        await alert_service.upsert_alert_config(
             project_id,
             AlertChannel(c.channel),
             c.endpoint,
@@ -119,7 +113,7 @@ async def update_alert_config(
             c.min_severity,
             c.is_enabled,
         )
-    configs = await get_alert_configs(project_id)
+    configs = await alert_service.get_alert_configs(project_id)
     return [
         AlertConfigResponse(
             id=c.id,

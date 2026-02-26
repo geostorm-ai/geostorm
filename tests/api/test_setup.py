@@ -44,7 +44,7 @@ async def _init_db(db_path: str) -> None:
 def _patches(db_path: str):
     fake = _fake_db_conn(db_path)
     return (
-        patch("src.routes.setup.get_db_connection", side_effect=fake),
+        patch("src.database.get_db_connection", side_effect=fake),
     )
 
 
@@ -63,7 +63,7 @@ async def test_setup_status_no_key_no_projects(tmp_path):
     await _init_db(db_path)
 
     (p1,) = _patches(db_path)
-    with p1, patch("src.routes.setup.get_settings", return_value=_fake_settings()):
+    with p1, patch("src.services.settings_service.get_settings", return_value=_fake_settings()):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -83,7 +83,7 @@ async def test_setup_status_with_env_key(tmp_path):
 
     (p1,) = _patches(db_path)
     with p1, patch(
-        "src.routes.setup.get_settings",
+        "src.services.settings_service.get_settings",
         return_value=_fake_settings("sk-or-test"),
     ):
         test_app = FastAPI()
@@ -111,7 +111,7 @@ async def test_setup_status_with_db_key(tmp_path):
         await db.close()
 
     (p1,) = _patches(db_path)
-    with p1, patch("src.routes.setup.get_settings", return_value=_fake_settings()):
+    with p1, patch("src.services.settings_service.get_settings", return_value=_fake_settings()):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -139,7 +139,7 @@ async def test_setup_status_with_projects(tmp_path):
         await db.close()
 
     (p1,) = _patches(db_path)
-    with p1, patch("src.routes.setup.get_settings", return_value=_fake_settings()):
+    with p1, patch("src.services.settings_service.get_settings", return_value=_fake_settings()):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -169,7 +169,7 @@ async def test_setup_status_demo_projects_not_counted(tmp_path):
         await db.close()
 
     (p1,) = _patches(db_path)
-    with p1, patch("src.routes.setup.get_settings", return_value=_fake_settings()):
+    with p1, patch("src.services.settings_service.get_settings", return_value=_fake_settings()):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -187,7 +187,7 @@ async def test_api_key_status_not_configured(tmp_path):
     await _init_db(db_path)
 
     (p1,) = _patches(db_path)
-    with p1, patch("src.routes.setup.get_settings", return_value=_fake_settings()):
+    with p1, patch("src.services.settings_service.get_settings", return_value=_fake_settings()):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -206,7 +206,7 @@ async def test_api_key_status_from_env(tmp_path):
 
     (p1,) = _patches(db_path)
     with p1, patch(
-        "src.routes.setup.get_settings",
+        "src.services.settings_service.get_settings",
         return_value=_fake_settings("sk-or-env"),
     ):
         test_app = FastAPI()
@@ -226,7 +226,7 @@ async def test_store_and_retrieve_api_key(tmp_path):
     await _init_db(db_path)
 
     (p1,) = _patches(db_path)
-    with p1, patch("src.routes.setup.get_settings", return_value=_fake_settings()):
+    with p1, patch("src.services.settings_service.get_settings", return_value=_fake_settings()):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -250,7 +250,7 @@ async def test_delete_api_key(tmp_path):
     await _init_db(db_path)
 
     (p1,) = _patches(db_path)
-    with p1, patch("src.routes.setup.get_settings", return_value=_fake_settings()):
+    with p1, patch("src.services.settings_service.get_settings", return_value=_fake_settings()):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -290,7 +290,7 @@ async def test_autofill_success(tmp_path):
     (p1,) = _patches(db_path)
     with (
         p1,
-        patch("src.routes.setup.get_settings", return_value=_fake_settings("sk-or-test")),
+        patch("src.services.settings_service.get_settings", return_value=_fake_settings("sk-or-test")),
         patch("src.routes.setup.get_api_key", return_value="sk-or-test"),
         patch("src.routes.setup.send_structured_prompt", mock_structured),
     ):
@@ -314,7 +314,7 @@ async def test_autofill_no_api_key(tmp_path):
     (p1,) = _patches(db_path)
     with (
         p1,
-        patch("src.routes.setup.get_settings", return_value=_fake_settings()),
+        patch("src.services.settings_service.get_settings", return_value=_fake_settings()),
         patch("src.routes.setup.get_api_key", return_value=None),
     ):
         test_app = FastAPI()
@@ -337,7 +337,7 @@ async def test_autofill_llm_error(tmp_path):
     (p1,) = _patches(db_path)
     with (
         p1,
-        patch("src.routes.setup.get_settings", return_value=_fake_settings("sk-or-test")),
+        patch("src.services.settings_service.get_settings", return_value=_fake_settings("sk-or-test")),
         patch("src.routes.setup.get_api_key", return_value="sk-or-test"),
         patch("src.routes.setup.send_structured_prompt", mock_structured),
     ):
@@ -361,7 +361,7 @@ async def test_autofill_unexpected_error(tmp_path):
     (p1,) = _patches(db_path)
     with (
         p1,
-        patch("src.routes.setup.get_settings", return_value=_fake_settings("sk-or-test")),
+        patch("src.services.settings_service.get_settings", return_value=_fake_settings("sk-or-test")),
         patch("src.routes.setup.get_api_key", return_value="sk-or-test"),
         patch("src.routes.setup.send_structured_prompt", mock_structured),
     ):

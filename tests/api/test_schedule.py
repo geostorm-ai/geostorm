@@ -80,8 +80,7 @@ async def _seed_schedule(
 def _patches(db_path: str):
     fake = _fake_db_conn(db_path)
     return (
-        patch("src.routes.schedule.get_db_connection", side_effect=fake),
-        patch("src.routes.deps.get_db_connection", side_effect=fake),
+        patch("src.database.get_db_connection", side_effect=fake),
     )
 
 
@@ -91,8 +90,8 @@ async def test_get_schedule(tmp_path):
     await _init_db(db_path)
     await _seed_schedule(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -110,8 +109,8 @@ async def test_get_schedule_not_found(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -125,8 +124,8 @@ async def test_get_schedule_project_not_found(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -141,8 +140,8 @@ async def test_update_schedule_hour(tmp_path):
     await _init_db(db_path)
     await _seed_schedule(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -163,8 +162,8 @@ async def test_update_schedule_days(tmp_path):
     await _init_db(db_path)
     await _seed_schedule(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -184,8 +183,8 @@ async def test_update_schedule_disable(tmp_path):
     await _init_db(db_path)
     await _seed_schedule(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -204,8 +203,8 @@ async def test_update_schedule_empty_body_400(tmp_path):
     await _init_db(db_path)
     await _seed_schedule(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -224,8 +223,8 @@ async def test_update_schedule_demo_403(tmp_path):
     await _seed_demo_project(db_path)
     await _seed_schedule(db_path, project_id="demo-1")
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)

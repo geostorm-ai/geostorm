@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import logging
 import re
-import uuid
-from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import logfire
 from pydantic import BaseModel
 
-from src.database import get_db_connection
 from src.models import MentionType
+
+if TYPE_CHECKING:
+    from src.repos.response_repo import ResponseRepo
 
 logger = logging.getLogger(__name__)
 
@@ -136,57 +137,28 @@ def detect_mentions(
     return mentions
 
 
-async def store_mentions(response_id: str, mentions: list[DetectedMention]) -> list[str]:
-    """Persist detected mentions to the database.
+class MentionService:
+    def __init__(self, response_repo: ResponseRepo) -> None:
+        self._response_repo = response_repo
 
-    Returns the list of newly created mention IDs.  If *mentions* is empty
-    the function returns immediately without opening a connection.
-    """
-    if not mentions:
-        return []
+    async def store_mentions(self, response_id: str, mentions: list[DetectedMention]) -> list[str]:
+        """Persist detected mentions to the database."""
+        if not mentions:
+            return []
 
-    ids: list[str] = []
-    async with get_db_connection() as db:
-        for mention in mentions:
-            mention_id = uuid.uuid4().hex
-            detected_at = datetime.now(tz=UTC).isoformat()
-            await db.execute(
-                "INSERT INTO mentions"
-                " (id, response_id, mention_type, target_name, position_chars,"
-                " position_words, list_position, context_before, context_after, detected_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    mention_id,
-                    response_id,
-                    mention.mention_type.value,
-                    mention.target_name,
-                    mention.position_chars,
-                    mention.position_words,
-                    mention.list_position,
-                    mention.context_before,
-                    mention.context_after,
-                    detected_at,
-                ),
-            )
-            ids.append(mention_id)
-        await db.commit()
+        ids = await self._response_repo.store_mentions(response_id, mentions)
+        logger.info("Stored %d mentions for response %s", len(ids), response_id)
+        return ids
 
-    logger.info("Stored %d mentions for response %s", len(ids), response_id)
-    return ids
-
-
-async def detect_and_store_mentions_for_response(
-    response_id: str,
-    response_text: str,
-    brand_name: str,
-    brand_aliases: list[str],
-    competitors: list[str],
-) -> list[str]:
-    """Detect mentions in *response_text* and persist them.
-
-    Convenience wrapper that calls :func:`detect_mentions` followed by
-    :func:`store_mentions`.  Returns the list of new mention IDs.
-    """
-    with logfire.span('mention detection', response_id=response_id):
-        detected = detect_mentions(response_text, brand_name, brand_aliases, competitors)
-        return await store_mentions(response_id, detected)
+    async def detect_and_store_mentions_for_response(
+        self,
+        response_id: str,
+        response_text: str,
+        brand_name: str,
+        brand_aliases: list[str],
+        competitors: list[str],
+    ) -> list[str]:
+        """Detect mentions in *response_text* and persist them."""
+        with logfire.span("mention detection", response_id=response_id):
+            detected = detect_mentions(response_text, brand_name, brand_aliases, competitors)
+            return await self.store_mentions(response_id, detected)

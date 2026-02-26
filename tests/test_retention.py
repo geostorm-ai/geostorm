@@ -77,7 +77,7 @@ async def test_cleanup_clears_old_response_text(tmp_path):
     await _insert_response(db_path, run_id, recent_date)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.retention.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         cleaned = await cleanup_old_responses(retention_days=30)
 
     assert cleaned == 2
@@ -111,7 +111,7 @@ async def test_cleanup_skips_error_responses(tmp_path):
     await _insert_response(db_path, run_id, old_date, error="API error")
 
     fake = _fake_db_conn(db_path)
-    with patch("src.retention.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         cleaned = await cleanup_old_responses(retention_days=30)
 
     assert cleaned == 0
@@ -126,7 +126,7 @@ async def test_cleanup_no_old_data(tmp_path):
     await _insert_response(db_path, run_id, recent_date)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.retention.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         cleaned = await cleanup_old_responses(retention_days=30)
 
     assert cleaned == 0
@@ -141,11 +141,11 @@ async def test_cleanup_is_idempotent(tmp_path):
     await _insert_response(db_path, run_id, old_date)
 
     fake = _fake_db_conn(db_path)
-    with patch("src.retention.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         first_run = await cleanup_old_responses(retention_days=30)
     assert first_run == 1
 
     fake = _fake_db_conn(db_path)
-    with patch("src.retention.get_db_connection", side_effect=fake):
+    with patch("src.database.get_db_connection", side_effect=fake):
         second_run = await cleanup_old_responses(retention_days=30)
     assert second_run == 0

@@ -77,8 +77,7 @@ async def _seed_term(db_path: str, project_id: str = "proj-1") -> None:
 def _patches(db_path: str):
     fake = _fake_db_conn(db_path)
     return (
-        patch("src.routes.terms.get_db_connection", side_effect=fake),
-        patch("src.routes.deps.get_db_connection", side_effect=fake),
+        patch("src.database.get_db_connection", side_effect=fake),
     )
 
 
@@ -88,8 +87,8 @@ async def test_list_terms(tmp_path):
     await _init_db(db_path)
     await _seed_term(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -106,8 +105,8 @@ async def test_list_terms_empty(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -122,8 +121,8 @@ async def test_list_terms_project_not_found(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -137,8 +136,8 @@ async def test_create_term(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -160,8 +159,8 @@ async def test_create_term_demo_403(tmp_path):
     await _init_db(db_path)
     await _seed_demo_project(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -179,8 +178,8 @@ async def test_delete_term(tmp_path):
     await _init_db(db_path)
     await _seed_term(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -194,8 +193,8 @@ async def test_delete_term_not_found(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -210,8 +209,8 @@ async def test_delete_term_demo_403(tmp_path):
     await _init_db(db_path)
     await _seed_demo_project(db_path)
 
-    p1, p2 = _patches(db_path)
-    with p1, p2:
+    (p1,) = _patches(db_path)
+    with p1:
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)

@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
-import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-import logfire
 from fastapi import APIRouter, HTTPException, Response
 
-from src.database import get_db_connection
-from src.llm.factory import get_available_providers
+from src.container import project_service
 from src.routes.deps import get_project_or_404, get_writable_project_or_403
-from src.scheduler import execute_monitoring_run
-from src.schemas import (
+from src.schemas import (  # noqa: TC001
     BrandResponse,
     CompetitorResponse,
     CreateCompetitorRequest,
@@ -26,153 +21,32 @@ from src.schemas import (
     UpdateBrandRequest,
     UpdateProjectRequest,
 )
+from src.services.project_service import clear_and_trigger_monitoring
 
 router = APIRouter(prefix="/api")
-
-_background_tasks: set[asyncio.Task[Any]] = set()
 
 
 @router.get("/projects")
 async def list_projects() -> list[ProjectResponse]:
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            """
-            SELECT p.*,
-                (SELECT ps.overall_score
-                 FROM perception_scores ps
-                 WHERE ps.project_id = p.id
-                   AND ps.term_id IS NULL
-                   AND ps.provider_name IS NULL
-                 ORDER BY ps.created_at DESC LIMIT 1) as latest_score,
-                (SELECT COUNT(*) FROM runs r WHERE r.project_id = p.id) as run_count,
-                (SELECT COUNT(*) FROM alerts a
-                 WHERE a.project_id = p.id AND a.is_acknowledged = 0) as active_alert_count
-            FROM projects p
-            WHERE p.deleted_at IS NULL
-            ORDER BY p.created_at DESC
-            """,
-        )
-        rows = await cursor.fetchall()
-        return [ProjectResponse(**dict(row)) for row in rows]
+    return await project_service.list_projects()
 
 
 @router.post("/projects", status_code=201)
 async def create_project(req: CreateProjectRequest) -> ProjectCreatedResponse:
-    now = datetime.now(tz=UTC).isoformat()
-    project_id = uuid.uuid4().hex
-    brand_id = uuid.uuid4().hex
-    schedule_id = uuid.uuid4().hex
-
-    async with get_db_connection() as db:
-        await db.execute(
-            "INSERT INTO projects (id, name, description, is_demo, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (project_id, req.name, req.description, False, now, now),
-        )
-        await db.execute(
-            "INSERT INTO brands (id, project_id, name, aliases_json, description, website, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                brand_id,
-                project_id,
-                req.brand_name or req.name,
-                json.dumps(req.brand_aliases),
-                req.brand_description,
-                req.brand_website,
-                now,
-                now,
-            ),
-        )
-        await db.execute(
-            "INSERT INTO project_schedules"
-            " (id, project_id, hour_of_day, days_of_week_json, is_active, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (schedule_id, project_id, 14, "[0,1,2,3,4]", True, now, now),
-        )
-
-        # Default LLM providers so monitoring can run immediately
-        default_providers = [
-            ("openrouter", "anthropic/claude-sonnet-4.6"),
-            ("openrouter", "openai/gpt-5.2"),
-            ("openrouter", "google/gemini-3-flash-preview"),
-        ]
-        for provider_name, model_name in default_providers:
-            await db.execute(
-                "INSERT INTO llm_providers"
-                " (id, project_id, provider_name, model_name, is_enabled, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (uuid.uuid4().hex, project_id, provider_name, model_name, True, now, now),
-            )
-
-        await db.commit()
-
-    return ProjectCreatedResponse(
-        id=project_id,
+    return await project_service.create_project(
         name=req.name,
-        brand_id=brand_id,
-        schedule_id=schedule_id,
-        providers_count=len(default_providers),
-        created_at=now,
+        description=req.description,
+        brand_name=req.brand_name,
+        brand_aliases=req.brand_aliases,
+        brand_description=req.brand_description,
+        brand_website=req.brand_website,
     )
 
 
 @router.get("/projects/{project_id}")
 async def get_project(project_id: str) -> ProjectDetailResponse:
     project = await get_project_or_404(project_id)
-
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "SELECT COUNT(*) FROM runs WHERE project_id = ?", (project_id,),
-        )
-        row = await cursor.fetchone()
-        run_count = row[0] if row else 0
-
-        cursor = await db.execute(
-            "SELECT * FROM brands WHERE project_id = ?", (project_id,),
-        )
-        brand_row = await cursor.fetchone()
-        brand = None
-        if brand_row:
-            brand = dict(brand_row)
-            brand["aliases"] = (
-                json.loads(brand["aliases_json"]) if brand["aliases_json"] else []
-            )
-
-        cursor = await db.execute(
-            "SELECT * FROM competitors WHERE project_id = ?", (project_id,),
-        )
-        competitor_rows = await cursor.fetchall()
-        competitors = []
-        for row in competitor_rows:
-            comp = dict(row)
-            comp["aliases"] = (
-                json.loads(comp["aliases_json"]) if comp["aliases_json"] else []
-            )
-            competitors.append(comp)
-
-        cursor = await db.execute(
-            "SELECT * FROM project_terms WHERE project_id = ?", (project_id,),
-        )
-        term_rows = await cursor.fetchall()
-        terms = [dict(row) for row in term_rows]
-
-        cursor = await db.execute(
-            "SELECT * FROM project_schedules WHERE project_id = ?", (project_id,),
-        )
-        schedule_row = await cursor.fetchone()
-        schedule = None
-        if schedule_row:
-            schedule = dict(schedule_row)
-            schedule["days_of_week"] = json.loads(schedule["days_of_week_json"])
-
-    return ProjectDetailResponse(
-        **dict(project),
-        run_count=run_count,
-        brand=brand,
-        competitors=competitors,
-        terms=terms,
-        schedule=schedule,
-    )
+    return await project_service.get_project_detail(project_id, project)
 
 
 @router.patch("/projects/{project_id}")
@@ -189,112 +63,38 @@ async def update_project(project_id: str, req: UpdateProjectRequest) -> ProjectR
         raise HTTPException(status_code=400, detail="No fields to update")
 
     updates["updated_at"] = datetime.now(tz=UTC).isoformat()
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
-    values = [*list(updates.values()), project_id]
-
-    async with get_db_connection() as db:
-        await db.execute(
-            f"UPDATE projects SET {set_clause} WHERE id = ?", values,
-        )
-        await db.commit()
-        cursor = await db.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
-        row = await cursor.fetchone()
-
-    if not row:
+    result = await project_service.update_project(project_id, updates)
+    if not result:
         raise HTTPException(status_code=404, detail="Project not found")
-    return ProjectResponse(**dict(row))
+    return result
 
 
 @router.delete("/projects/{project_id}")
 async def delete_project(project_id: str) -> Response:
     await get_writable_project_or_403(project_id)
-
-    now = datetime.now(tz=UTC).isoformat()
-    async with get_db_connection() as db:
-        await db.execute(
-            "UPDATE projects SET deleted_at = ?, updated_at = ? WHERE id = ?",
-            (now, now, project_id),
-        )
-        await db.commit()
-
+    await project_service.soft_delete_project(project_id)
     return Response(status_code=204)
 
 
 @router.post("/projects/{project_id}/monitor", status_code=202)
 async def trigger_monitoring(project_id: str) -> dict[str, str]:
     await get_writable_project_or_403(project_id)
-    available = await get_available_providers()
-    if not available:
+    result = await clear_and_trigger_monitoring(project_id)
+    if result.get("error") == "no_api_key":
         raise HTTPException(
             status_code=400,
             detail="No API key configured. Add your OpenRouter API key in Settings to run monitoring.",
         )
-
-    # Cancel any currently running background monitoring tasks
-    for t in list(_background_tasks):
-        if not t.done():
-            t.cancel()
-    _background_tasks.clear()
-
-    # Clear old run data for this project so we start fresh
-    async with get_db_connection() as db:
-        run_ids_cursor = await db.execute(
-            "SELECT id FROM runs WHERE project_id = ?", (project_id,),
-        )
-        run_ids = [row["id"] for row in await run_ids_cursor.fetchall()]
-
-        if run_ids:
-            placeholders = ",".join("?" for _ in run_ids)
-            resp_sub = f"SELECT id FROM responses WHERE run_id IN ({placeholders})"
-            await db.execute(
-                f"DELETE FROM mentions WHERE response_id IN ({resp_sub})",
-                run_ids,
-            )
-            await db.execute(
-                f"DELETE FROM citations WHERE response_id IN ({resp_sub})",
-                run_ids,
-            )
-            await db.execute(
-                f"DELETE FROM responses WHERE run_id IN ({placeholders})", run_ids,
-            )
-            await db.execute(
-                f"DELETE FROM runs WHERE id IN ({placeholders})", run_ids,
-            )
-
-        await db.execute("DELETE FROM perception_scores WHERE project_id = ?", (project_id,))
-        await db.execute("DELETE FROM alerts WHERE project_id = ?", (project_id,))
-        await db.commit()
-
-    logfire.info('monitoring triggered', project_id=project_id, trigger='manual')
-    task = asyncio.create_task(execute_monitoring_run(project_id, trigger_type="manual"))
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
-    return {"status": "accepted", "message": "Monitoring run triggered"}
+    return result
 
 
 @router.get("/projects/{project_id}/brand")
 async def get_brand(project_id: str) -> BrandResponse:
     await get_project_or_404(project_id)
-
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "SELECT * FROM brands WHERE project_id = ?", (project_id,),
-        )
-        row = await cursor.fetchone()
-
-    if not row:
+    brand = await project_service.get_brand(project_id)
+    if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
-
-    return BrandResponse(
-        id=row["id"],
-        project_id=row["project_id"],
-        name=row["name"],
-        aliases=json.loads(row["aliases_json"]) if row["aliases_json"] else [],
-        description=row["description"],
-        website=row["website"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-    )
+    return brand
 
 
 @router.put("/projects/{project_id}/brand")
@@ -315,97 +115,30 @@ async def update_brand(project_id: str, req: UpdateBrandRequest) -> BrandRespons
         raise HTTPException(status_code=400, detail="No fields to update")
 
     updates["updated_at"] = datetime.now(tz=UTC).isoformat()
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
-    values = [*list(updates.values()), project_id]
-
-    async with get_db_connection() as db:
-        await db.execute(
-            f"UPDATE brands SET {set_clause} WHERE project_id = ?", values,
-        )
-        await db.commit()
-        cursor = await db.execute(
-            "SELECT * FROM brands WHERE project_id = ?", (project_id,),
-        )
-        row = await cursor.fetchone()
-
-    if not row:
+    brand = await project_service.update_brand(project_id, updates)
+    if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
-    return BrandResponse(
-        id=row["id"],
-        project_id=row["project_id"],
-        name=row["name"],
-        aliases=json.loads(row["aliases_json"]) if row["aliases_json"] else [],
-        description=row["description"],
-        website=row["website"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-    )
+    return brand
 
 
 @router.get("/projects/{project_id}/competitors")
 async def list_competitors(project_id: str) -> list[CompetitorResponse]:
     await get_project_or_404(project_id)
-
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "SELECT * FROM competitors WHERE project_id = ?", (project_id,),
-        )
-        rows = await cursor.fetchall()
-
-    return [
-        CompetitorResponse(
-            id=row["id"],
-            project_id=row["project_id"],
-            name=row["name"],
-            aliases=json.loads(row["aliases_json"]) if row["aliases_json"] else [],
-            website=row["website"],
-            is_active=bool(row["is_active"]),
-            created_at=row["created_at"],
-            updated_at=row["updated_at"],
-        )
-        for row in rows
-    ]
+    return await project_service.list_competitors(project_id)
 
 
 @router.post("/projects/{project_id}/competitors", status_code=201)
 async def create_competitor(project_id: str, req: CreateCompetitorRequest) -> CompetitorResponse:
     await get_writable_project_or_403(project_id)
-
-    now = datetime.now(tz=UTC).isoformat()
-    competitor_id = uuid.uuid4().hex
-
-    async with get_db_connection() as db:
-        await db.execute(
-            "INSERT INTO competitors"
-            " (id, project_id, name, aliases_json, website, is_active, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (competitor_id, project_id, req.name, json.dumps(req.aliases), req.website, True, now, now),
-        )
-        await db.commit()
-
-    return CompetitorResponse(
-        id=competitor_id,
-        project_id=project_id,
-        name=req.name,
-        aliases=req.aliases,
-        website=req.website,
-        is_active=True,
-        created_at=now,
-        updated_at=now,
+    return await project_service.create_competitor(
+        project_id, req.name, req.aliases, req.website,
     )
 
 
 @router.delete("/projects/{project_id}/competitors/{competitor_id}")
 async def delete_competitor(project_id: str, competitor_id: str) -> Response:
     await get_writable_project_or_403(project_id)
-
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "DELETE FROM competitors WHERE id = ? AND project_id = ?",
-            (competitor_id, project_id),
-        )
-        await db.commit()
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Competitor not found")
-
+    rowcount = await project_service.delete_competitor(competitor_id, project_id)
+    if rowcount == 0:
+        raise HTTPException(status_code=404, detail="Competitor not found")
     return Response(status_code=204)

@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import logging
-import uuid
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import logfire
 from pydantic import BaseModel
 
-from src.database import get_db_connection
 from src.models import MentionType, PeriodType, TrendDirection
+
+if TYPE_CHECKING:
+    from src.repos.score_repo import ScoreRepo
 
 logger = logging.getLogger(__name__)
 
@@ -76,216 +78,142 @@ def calculate_overall_score(
     return max(0.0, min(100.0, raw))
 
 
-async def get_previous_score(
-    project_id: str,
-    term_id: str | None,
-    provider_name: str | None,
-    lookback_days: int = 7,
-) -> float | None:
-    """Fetch the most recent recommendation_share for the given project/term/provider.
+class ScoringService:
+    def __init__(self, score_repo: ScoreRepo) -> None:
+        self._score_repo = score_repo
 
-    Returns None if no historical score exists within the lookback window.
-    """
-    cutoff = (datetime.now(tz=UTC) - timedelta(days=lookback_days)).isoformat()
-    async with get_db_connection() as db:
-        if term_id is not None and provider_name is not None:
-            cursor = await db.execute(
-                "SELECT recommendation_share FROM perception_scores"
-                " WHERE project_id = ? AND term_id = ? AND provider_name = ? AND created_at > ?"
-                " ORDER BY created_at DESC LIMIT 1",
-                (project_id, term_id, provider_name, cutoff),
-            )
-        elif term_id is not None:
-            cursor = await db.execute(
-                "SELECT recommendation_share FROM perception_scores"
-                " WHERE project_id = ? AND term_id = ? AND provider_name IS NULL AND created_at > ?"
-                " ORDER BY created_at DESC LIMIT 1",
-                (project_id, term_id, cutoff),
-            )
-        elif provider_name is not None:
-            cursor = await db.execute(
-                "SELECT recommendation_share FROM perception_scores"
-                " WHERE project_id = ? AND term_id IS NULL AND provider_name = ? AND created_at > ?"
-                " ORDER BY created_at DESC LIMIT 1",
-                (project_id, provider_name, cutoff),
-            )
-        else:
-            cursor = await db.execute(
-                "SELECT recommendation_share FROM perception_scores"
-                " WHERE project_id = ? AND term_id IS NULL AND provider_name IS NULL AND created_at > ?"
-                " ORDER BY created_at DESC LIMIT 1",
-                (project_id, cutoff),
-            )
-        row = await cursor.fetchone()
-    if row is None:
-        return None
-    return float(row["recommendation_share"])
+    async def get_previous_score(
+        self,
+        project_id: str,
+        term_id: str | None,
+        provider_name: str | None,
+        lookback_days: int = 7,
+    ) -> float | None:
+        """Fetch the most recent recommendation_share for the given project/term/provider."""
+        cutoff = (datetime.now(tz=UTC) - timedelta(days=lookback_days)).isoformat()
+        return await self._score_repo.get_previous_score(project_id, term_id, provider_name, cutoff)
 
-
-async def calculate_run_scores(run_id: str, project_id: str) -> list[ScoreResult]:
-    """Calculate perception scores for every (term, provider) group in a run.
-
-    Also produces a project-level aggregate with term_id=None and provider_name=None.
-    """
-    async with get_db_connection() as db:
-        # Fetch all non-error responses for this run
-        cursor = await db.execute(
-            "SELECT r.id AS response_id, r.term_id, r.provider_name"
-            " FROM responses r"
-            " WHERE r.run_id = ? AND r.error_message IS NULL",
-            (run_id,),
-        )
-        responses = await cursor.fetchall()
+    async def calculate_run_scores(self, run_id: str, project_id: str) -> list[ScoreResult]:
+        """Calculate perception scores for every (term, provider) group in a run."""
+        responses, mentions = await self._score_repo.get_run_responses_with_mentions(run_id)
 
         if not responses:
             return []
 
-        response_ids = [r["response_id"] for r in responses]
-        placeholders = ",".join("?" for _ in response_ids)
+        # Build lookup: response_id -> list of mentions
+        mention_map: dict[str, list[dict[str, object]]] = defaultdict(list)
+        for m in mentions:
+            mention_map[m["response_id"]].append({
+                "mention_type": m["mention_type"],
+                "target_name": m["target_name"],
+                "list_position": m["list_position"],
+            })
 
-        # Fetch all mentions for those responses
-        cursor = await db.execute(
-            f"SELECT m.response_id, m.mention_type, m.target_name, m.list_position"
-            f" FROM mentions m WHERE m.response_id IN ({placeholders})",
-            response_ids,
-        )
-        mentions = await cursor.fetchall()
+        # Group responses by (term_id, provider_name)
+        groups: dict[tuple[str, str], list[str]] = defaultdict(list)
+        for r in responses:
+            key = (r["term_id"], r["provider_name"])
+            groups[key].append(r["response_id"])
 
-    # Build lookup: response_id -> list of mentions
-    mention_map: dict[str, list[dict[str, object]]] = defaultdict(list)
-    for m in mentions:
-        mention_map[m["response_id"]].append({
-            "mention_type": m["mention_type"],
-            "target_name": m["target_name"],
-            "list_position": m["list_position"],
-        })
+        results: list[ScoreResult] = []
 
-    # Group responses by (term_id, provider_name)
-    groups: dict[tuple[str, str], list[str]] = defaultdict(list)
-    for r in responses:
-        key = (r["term_id"], r["provider_name"])
-        groups[key].append(r["response_id"])
-
-    results: list[ScoreResult] = []
-
-    for (term_id, provider_name), resp_ids in groups.items():
-        score = await _score_group(
-            resp_ids, mention_map, project_id, term_id, provider_name,
-        )
-        results.append(score)
-
-    # Project-level aggregate (term_id=None, provider_name=None)
-    all_resp_ids = [r["response_id"] for r in responses]
-    aggregate = await _score_group(all_resp_ids, mention_map, project_id, None, None)
-    results.append(aggregate)
-
-    return results
-
-
-async def _score_group(
-    resp_ids: list[str],
-    mention_map: dict[str, list[dict[str, object]]],
-    project_id: str,
-    term_id: str | None,
-    provider_name: str | None,
-) -> ScoreResult:
-    """Score a group of responses for a given (term_id, provider_name) slice."""
-    total = len(resp_ids)
-    brand_count = 0
-    brand_positions: list[int] = []
-    competitor_shares: dict[str, int] = defaultdict(int)
-
-    for rid in resp_ids:
-        has_brand = False
-        response_competitors: set[str] = set()
-        for m in mention_map.get(rid, []):
-            if m["mention_type"] == MentionType.BRAND.value:
-                has_brand = True
-                if m["list_position"] is not None:
-                    brand_positions.append(int(str(m["list_position"])))
-            elif m["mention_type"] == MentionType.COMPETITOR.value:
-                response_competitors.add(str(m["target_name"]))
-        if has_brand:
-            brand_count += 1
-        for comp in response_competitors:
-            competitor_shares[comp] += 1
-
-    recommendation_share = brand_count / total if total > 0 else 0.0
-    position_avg = sum(brand_positions) / len(brand_positions) if brand_positions else None
-
-    # Competitor delta: brand share minus top competitor share
-    competitor_delta: float | None = None
-    if competitor_shares:
-        top_competitor_share = max(competitor_shares.values()) / total
-        competitor_delta = recommendation_share - top_competitor_share
-
-    overall = calculate_overall_score(recommendation_share, position_avg, competitor_delta)
-    previous = await get_previous_score(project_id, term_id, provider_name)
-    trend = calculate_trend(recommendation_share, previous)
-
-    return ScoreResult(
-        term_id=term_id,
-        provider_name=provider_name,
-        recommendation_share=recommendation_share,
-        position_avg=position_avg,
-        competitor_delta=competitor_delta,
-        overall_score=overall,
-        trend_direction=trend,
-    )
-
-
-async def store_scores(
-    project_id: str,
-    scores: list[ScoreResult],
-    period_type: PeriodType = PeriodType.DAILY,
-) -> list[str]:
-    """Persist a list of score results into the perception_scores table.
-
-    Returns the list of newly created score IDs.
-    """
-    if not scores:
-        return []
-
-    now = datetime.now(tz=UTC).isoformat()
-    ids: list[str] = []
-
-    async with get_db_connection() as db:
-        for score in scores:
-            score_id = uuid.uuid4().hex
-            await db.execute(
-                "INSERT INTO perception_scores"
-                " (id, project_id, term_id, provider_name, recommendation_share,"
-                "  position_avg, competitor_delta, overall_score, trend_direction,"
-                "  period_type, period_start, period_end, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    score_id,
-                    project_id,
-                    score.term_id,
-                    score.provider_name,
-                    score.recommendation_share,
-                    score.position_avg,
-                    score.competitor_delta,
-                    score.overall_score,
-                    score.trend_direction.value,
-                    period_type.value,
-                    now,
-                    now,
-                    now,
-                ),
+        for (term_id, provider_name), resp_ids in groups.items():
+            score = await self._score_group(
+                resp_ids, mention_map, project_id, term_id, provider_name,
             )
-            ids.append(score_id)
-        await db.commit()
+            results.append(score)
 
-    logger.info("Stored %d perception scores for project %s", len(ids), project_id)
-    return ids
+        # Project-level aggregate (term_id=None, provider_name=None)
+        all_resp_ids = [r["response_id"] for r in responses]
+        aggregate = await self._score_group(all_resp_ids, mention_map, project_id, None, None)
+        results.append(aggregate)
 
+        return results
 
-async def calculate_and_store_scores(run_id: str, project_id: str) -> list[str]:
-    """Pipeline: calculate run scores then persist them.
+    async def _score_group(
+        self,
+        resp_ids: list[str],
+        mention_map: dict[str, list[dict[str, object]]],
+        project_id: str,
+        term_id: str | None,
+        provider_name: str | None,
+    ) -> ScoreResult:
+        """Score a group of responses for a given (term_id, provider_name) slice."""
+        total = len(resp_ids)
+        brand_count = 0
+        brand_positions: list[int] = []
+        competitor_shares: dict[str, int] = defaultdict(int)
 
-    Returns the list of stored score IDs.
-    """
-    with logfire.span('score calculation', run_id=run_id, project_id=project_id):
-        scores = await calculate_run_scores(run_id, project_id)
-        return await store_scores(project_id, scores)
+        for rid in resp_ids:
+            has_brand = False
+            response_competitors: set[str] = set()
+            for m in mention_map.get(rid, []):
+                if m["mention_type"] == MentionType.BRAND.value:
+                    has_brand = True
+                    if m["list_position"] is not None:
+                        brand_positions.append(int(str(m["list_position"])))
+                elif m["mention_type"] == MentionType.COMPETITOR.value:
+                    response_competitors.add(str(m["target_name"]))
+            if has_brand:
+                brand_count += 1
+            for comp in response_competitors:
+                competitor_shares[comp] += 1
+
+        recommendation_share = brand_count / total if total > 0 else 0.0
+        position_avg = sum(brand_positions) / len(brand_positions) if brand_positions else None
+
+        # Competitor delta: brand share minus top competitor share
+        competitor_delta: float | None = None
+        if competitor_shares:
+            top_competitor_share = max(competitor_shares.values()) / total
+            competitor_delta = recommendation_share - top_competitor_share
+
+        overall = calculate_overall_score(recommendation_share, position_avg, competitor_delta)
+        previous = await self.get_previous_score(project_id, term_id, provider_name)
+        trend = calculate_trend(recommendation_share, previous)
+
+        return ScoreResult(
+            term_id=term_id,
+            provider_name=provider_name,
+            recommendation_share=recommendation_share,
+            position_avg=position_avg,
+            competitor_delta=competitor_delta,
+            overall_score=overall,
+            trend_direction=trend,
+        )
+
+    async def store_scores(
+        self,
+        project_id: str,
+        scores: list[ScoreResult],
+        period_type: PeriodType = PeriodType.DAILY,
+    ) -> list[str]:
+        """Persist a list of score results into the perception_scores table."""
+        if not scores:
+            return []
+
+        now = datetime.now(tz=UTC).isoformat()
+        score_tuples = [
+            (
+                score.term_id,
+                score.provider_name,
+                score.recommendation_share,
+                score.position_avg,
+                score.competitor_delta,
+                score.overall_score,
+                score.trend_direction.value,
+                period_type.value,
+                now,
+                now,
+            )
+            for score in scores
+        ]
+        ids = await self._score_repo.store_scores(project_id, score_tuples, period_type.value, now)
+        logger.info("Stored %d perception scores for project %s", len(ids), project_id)
+        return ids
+
+    async def calculate_and_store_scores(self, run_id: str, project_id: str) -> list[str]:
+        """Pipeline: calculate run scores then persist them."""
+        with logfire.span("score calculation", run_id=run_id, project_id=project_id):
+            scores = await self.calculate_run_scores(run_id, project_id)
+            return await self.store_scores(project_id, scores)

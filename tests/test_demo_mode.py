@@ -62,12 +62,7 @@ def _build_app():
 
 def _patches(fake):
     return (
-        patch("src.routes.projects.get_db_connection", side_effect=fake),
-        patch("src.routes.deps.get_db_connection", side_effect=fake),
-        patch("src.routes.terms.get_db_connection", side_effect=fake),
-        patch("src.routes.schedule.get_db_connection", side_effect=fake),
-        patch("src.routes.runs.get_db_connection", side_effect=fake),
-        patch("src.services.alert_service.get_db_connection", side_effect=fake),
+        patch("src.database.get_db_connection", side_effect=fake),
     )
 
 
@@ -276,7 +271,7 @@ async def test_trigger_monitor_demo_returns_403(tmp_path):
         for p in _patches(fake):
             stack.enter_context(p)
         stack.enter_context(
-            patch("src.routes.projects.execute_monitoring_run", mock_monitor),
+            patch("src.scheduler.execute_monitoring_run", mock_monitor),
         )
 
         app = _build_app()

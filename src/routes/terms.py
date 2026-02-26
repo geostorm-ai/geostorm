@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Response
 
-from src.database import get_db_connection
+from src.container import term_service
 from src.routes.deps import get_project_or_404, get_writable_project_or_403
 from src.schemas import CreateTermRequest, TermResponse
 
@@ -17,12 +17,7 @@ router = APIRouter(prefix="/api")
 @router.get("/projects/{project_id}/terms")
 async def get_terms(project_id: str) -> list[TermResponse]:
     await get_project_or_404(project_id)
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "SELECT * FROM project_terms WHERE project_id = ? AND is_active = 1",
-            (project_id,),
-        )
-        rows = await cursor.fetchall()
+    rows = await term_service.list_terms(project_id)
     return [
         TermResponse(
             id=row["id"],
@@ -42,13 +37,7 @@ async def create_term(project_id: str, body: CreateTermRequest) -> TermResponse:
     await get_writable_project_or_403(project_id)
     term_id = uuid.uuid4().hex
     now = datetime.now(tz=UTC).isoformat()
-    async with get_db_connection() as db:
-        await db.execute(
-            "INSERT INTO project_terms (id, project_id, name, description, is_active, created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, 1, ?, ?)",
-            (term_id, project_id, body.name, body.description, now, now),
-        )
-        await db.commit()
+    await term_service.create_term(term_id, project_id, body.name, body.description, now)
     return TermResponse(
         id=term_id,
         project_id=project_id,
@@ -63,12 +52,7 @@ async def create_term(project_id: str, body: CreateTermRequest) -> TermResponse:
 @router.delete("/projects/{project_id}/terms/{term_id}")
 async def delete_term(project_id: str, term_id: str) -> Response:
     await get_writable_project_or_403(project_id)
-    async with get_db_connection() as db:
-        cursor = await db.execute(
-            "DELETE FROM project_terms WHERE id = ? AND project_id = ?",
-            (term_id, project_id),
-        )
-        await db.commit()
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Term not found")
+    rowcount = await term_service.delete_term(term_id, project_id)
+    if rowcount == 0:
+        raise HTTPException(status_code=404, detail="Term not found")
     return Response(status_code=204)

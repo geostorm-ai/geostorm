@@ -7,17 +7,9 @@ from unittest.mock import patch
 
 import aiosqlite
 
+from src.container import change_detection_service
 from src.models import AlertSeverity, AlertType, MentionType
-from src.services.change_detection import (
-    Baseline,
-    DetectedChange,
-    detect_competitor_emergence,
-    detect_disappearance,
-    detect_model_divergence,
-    detect_position_degradation,
-    detect_share_drop,
-    store_alerts,
-)
+from src.services.change_detection import Baseline, DetectedChange
 
 _MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations" / "001_initial_schema.sql"
 
@@ -135,8 +127,8 @@ class TestDetectCompetitorEmergence:
             provider_shares={"openai": 0.9},
         )
 
-        with patch("src.services.change_detection.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            changes = await detect_competitor_emergence("proj-1", "run-new", baseline)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            changes = await change_detection_service.detect_competitor_emergence("proj-1", "run-new", baseline)
 
         assert len(changes) == 1
         assert changes[0].alert_type == AlertType.COMPETITOR_EMERGENCE
@@ -172,8 +164,8 @@ class TestDetectCompetitorEmergence:
             provider_shares={"openai": 0.9},
         )
 
-        with patch("src.services.change_detection.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            changes = await detect_competitor_emergence("proj-1", "run-new", baseline)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            changes = await change_detection_service.detect_competitor_emergence("proj-1", "run-new", baseline)
 
         assert changes == []
 
@@ -216,8 +208,8 @@ class TestDetectDisappearance:
             provider_shares={"openai": 0.9},
         )
 
-        with patch("src.services.change_detection.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            changes = await detect_disappearance("proj-1", "run-new", baseline)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            changes = await change_detection_service.detect_disappearance("proj-1", "run-new", baseline)
 
         assert len(changes) == 1
         assert changes[0].alert_type == AlertType.DISAPPEARANCE
@@ -255,8 +247,8 @@ class TestDetectDisappearance:
             provider_shares={"openai": 0.9},
         )
 
-        with patch("src.services.change_detection.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            changes = await detect_disappearance("proj-1", "run-new", baseline)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            changes = await change_detection_service.detect_disappearance("proj-1", "run-new", baseline)
 
         assert changes == []
 
@@ -276,7 +268,7 @@ class TestDetectShareDrop:
             provider_shares={},
         )
 
-        changes = await detect_share_drop("proj-1", "run-1", baseline, current_share=0.6)
+        changes = await change_detection_service.detect_share_drop("proj-1", "run-1", baseline, current_share=0.6)
 
         assert len(changes) == 1
         assert changes[0].alert_type == AlertType.RECOMMENDATION_SHARE_DROP
@@ -291,7 +283,7 @@ class TestDetectShareDrop:
             provider_shares={},
         )
 
-        changes = await detect_share_drop("proj-1", "run-1", baseline, current_share=0.75)
+        changes = await change_detection_service.detect_share_drop("proj-1", "run-1", baseline, current_share=0.75)
 
         assert changes == []
 
@@ -311,7 +303,9 @@ class TestDetectPositionDegradation:
             provider_shares={},
         )
 
-        changes = await detect_position_degradation("proj-1", "run-1", baseline, current_position=4.5)
+        changes = await change_detection_service.detect_position_degradation(
+            "proj-1", "run-1", baseline, current_position=4.5,
+        )
 
         assert len(changes) == 1
         assert changes[0].alert_type == AlertType.POSITION_DEGRADATION
@@ -326,7 +320,9 @@ class TestDetectPositionDegradation:
             provider_shares={},
         )
 
-        changes = await detect_position_degradation("proj-1", "run-1", baseline, current_position=2.0)
+        changes = await change_detection_service.detect_position_degradation(
+            "proj-1", "run-1", baseline, current_position=2.0,
+        )
 
         assert changes == []
 
@@ -377,8 +373,8 @@ class TestDetectModelDivergence:
         finally:
             await db.close()
 
-        with patch("src.services.change_detection.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            changes = await detect_model_divergence("proj-1", "run-new")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            changes = await change_detection_service.detect_model_divergence("proj-1", "run-new")
 
         assert len(changes) == 1
         assert changes[0].alert_type == AlertType.MODEL_DIVERGENCE
@@ -424,8 +420,8 @@ class TestDetectModelDivergence:
         finally:
             await db.close()
 
-        with patch("src.services.change_detection.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            changes = await detect_model_divergence("proj-1", "run-new")
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            changes = await change_detection_service.detect_model_divergence("proj-1", "run-new")
 
         assert changes == []
 
@@ -463,8 +459,8 @@ class TestStoreAlerts:
             ),
         ]
 
-        with patch("src.services.change_detection.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            ids = await store_alerts("proj-1", changes)
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            ids = await change_detection_service.store_alerts("proj-1", changes)
 
         assert len(ids) == 1
 
@@ -496,7 +492,7 @@ class TestStoreAlerts:
         finally:
             await db.close()
 
-        with patch("src.services.change_detection.get_db_connection", side_effect=_fake_db_conn(db_path)):
-            ids = await store_alerts("proj-1", [])
+        with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+            ids = await change_detection_service.store_alerts("proj-1", [])
 
         assert ids == []
