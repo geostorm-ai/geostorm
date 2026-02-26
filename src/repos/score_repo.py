@@ -123,6 +123,79 @@ class ScoreRepo:
             mentions = list(await cursor.fetchall())
         return responses, mentions
 
+    async def get_latest_breakdown_by_term(
+        self, project_id: str,
+    ) -> list[aiosqlite.Row]:
+        """Return the most recent per-term aggregate scores."""
+        async with self._get_connection() as db:
+            cursor = await db.execute(
+                "SELECT ps.term_id, ps.recommendation_share, ps.position_avg"
+                " FROM perception_scores ps"
+                " INNER JOIN ("
+                "   SELECT term_id, MAX(created_at) AS max_created"
+                "   FROM perception_scores"
+                "   WHERE project_id = ? AND term_id IS NOT NULL AND provider_name IS NULL"
+                "   GROUP BY term_id"
+                " ) latest ON ps.term_id = latest.term_id AND ps.created_at = latest.max_created"
+                " WHERE ps.project_id = ? AND ps.provider_name IS NULL",
+                (project_id, project_id),
+            )
+            return list(await cursor.fetchall())
+
+    async def get_latest_breakdown_by_provider(
+        self, project_id: str,
+    ) -> list[aiosqlite.Row]:
+        """Return the most recent per-provider aggregate scores."""
+        async with self._get_connection() as db:
+            cursor = await db.execute(
+                "SELECT ps.provider_name, ps.recommendation_share, ps.position_avg"
+                " FROM perception_scores ps"
+                " INNER JOIN ("
+                "   SELECT provider_name, MAX(created_at) AS max_created"
+                "   FROM perception_scores"
+                "   WHERE project_id = ? AND term_id IS NULL AND provider_name IS NOT NULL"
+                "   GROUP BY provider_name"
+                " ) latest ON ps.provider_name = latest.provider_name AND ps.created_at = latest.max_created"
+                " WHERE ps.project_id = ? AND ps.term_id IS NULL",
+                (project_id, project_id),
+            )
+            return list(await cursor.fetchall())
+
+    async def get_latest_run_counts(
+        self, project_id: str,
+    ) -> tuple[int, int]:
+        """Return (total_responses, brand_mentions) from the latest completed run."""
+        async with self._get_connection() as db:
+            cursor = await db.execute(
+                "SELECT id FROM runs"
+                " WHERE project_id = ? AND status = 'completed'"
+                " ORDER BY completed_at DESC LIMIT 1",
+                (project_id,),
+            )
+            run_row = await cursor.fetchone()
+            if not run_row:
+                return 0, 0
+            run_id = run_row["id"]
+
+            cursor = await db.execute(
+                "SELECT COUNT(*) AS total FROM responses"
+                " WHERE run_id = ? AND error_message IS NULL",
+                (run_id,),
+            )
+            total_row = await cursor.fetchone()
+            total = total_row["total"] if total_row else 0
+
+            cursor = await db.execute(
+                "SELECT COUNT(DISTINCT resp.id) AS mentioned FROM responses resp"
+                " INNER JOIN mentions m ON m.response_id = resp.id"
+                " WHERE resp.run_id = ? AND resp.error_message IS NULL AND m.mention_type = 'brand'",
+                (run_id,),
+            )
+            mention_row = await cursor.fetchone()
+            mentions = mention_row["mentioned"] if mention_row else 0
+
+        return total, mentions
+
     async def store_scores(
         self,
         project_id: str,

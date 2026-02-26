@@ -7,6 +7,7 @@ interface ScoreDisplayProps {
 	value: number | null
 	format?: "percent" | "number" | "score"
 	trend?: TrendDirection
+	description?: string
 	className?: string
 }
 
@@ -27,6 +28,7 @@ export function ScoreDisplay({
 	value,
 	format = "score",
 	trend,
+	description,
 	className,
 }: ScoreDisplayProps) {
 	return (
@@ -38,7 +40,10 @@ export function ScoreDisplay({
 				</span>
 				{trend && <TrendIndicator direction={trend} />}
 			</div>
-			{(value === null || (format === "percent" && value === 0)) && (
+			{description && (
+				<span className="text-xs text-muted-foreground">{description}</span>
+			)}
+			{!description && (value === null || (format === "percent" && value === 0)) && (
 				<span className="text-xs text-muted-foreground">Not enough data yet</span>
 			)}
 		</div>

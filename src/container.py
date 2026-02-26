@@ -69,7 +69,7 @@ term_service = TermService(term_repo)
 schedule_service = ScheduleService(schedule_repo)
 provider_service = ProviderService(provider_repo)
 settings_service = SettingsService(settings_repo, project_repo)
-run_service = RunService(run_repo, response_repo, score_repo)
+run_service = RunService(run_repo, response_repo, score_repo, term_repo)
 
 # ---------------------------------------------------------------------------
 # Services — tier 2 (cross-service dependencies)

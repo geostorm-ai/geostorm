@@ -6,6 +6,7 @@ import { PerceptionChart } from "./PerceptionChart"
 import { ProjectTabs } from "./ProjectTabs"
 import { RecentRuns } from "./RecentRuns"
 import { SignalPanel } from "./SignalPanel"
+import { VisibilityBreakdown } from "./VisibilityBreakdown"
 import { apiFetch } from "@/lib/api"
 import { useRuns } from "@/hooks/useRuns"
 import { useApiKeyStatus } from "@/hooks/useSettings"
@@ -147,6 +148,7 @@ function ProjectDetailPageInner() {
 				<div className="mt-6">
 					<SignalPanel projectId={id} />
 				</div>
+				<VisibilityBreakdown projectId={id} />
 				<div className="mt-6">
 					<ProjectTabs projectId={id} isDemo={project.is_demo} />
 				</div>

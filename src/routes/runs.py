@@ -13,11 +13,12 @@ if TYPE_CHECKING:
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from src.container import run_repo, run_service
+from src.container import run_repo, run_service, term_repo
 from src.progress import RunPhase, RunProgressEvent, progress_bus
 from src.routes.deps import get_project_or_404
 from src.schemas import (  # noqa: TC001
     PaginatedResponse,
+    PerceptionBreakdownResponse,
     PerceptionResponse,
     ResponseItem,
     RunDetailResponse,
@@ -174,3 +175,17 @@ async def get_trajectory(
     """Historical trajectory data showing week-over-week or day-over-day changes."""
     await get_project_or_404(project_id)
     return await run_service.get_trajectory(project_id, start_date, end_date, period)
+
+
+# ---------------------------------------------------------------------------
+# 7) GET /api/projects/{project_id}/perception/breakdown
+# ---------------------------------------------------------------------------
+
+
+@router.get("/projects/{project_id}/perception/breakdown")
+async def get_perception_breakdown(project_id: str) -> PerceptionBreakdownResponse:
+    """Per-term and per-provider perception breakdown from the latest scoring period."""
+    await get_project_or_404(project_id)
+    term_rows = await term_repo.list_active_term_ids_and_names(project_id)
+    term_names = {row["id"]: row["name"] for row in term_rows}
+    return await run_service.get_perception_breakdown(project_id, term_names)

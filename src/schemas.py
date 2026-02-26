@@ -375,6 +375,33 @@ class PerceptionResponse(BaseModel):
     data: list[PerceptionDataPoint] = Field(default_factory=list)
 
 
+class PerceptionBreakdownByTerm(BaseModel):
+    """Per-term breakdown in perception data."""
+
+    term_id: str
+    term_name: str
+    recommendation_share: float
+    position_avg: float | None = None
+
+
+class PerceptionBreakdownByProvider(BaseModel):
+    """Per-provider breakdown in perception data."""
+
+    provider_name: str
+    recommendation_share: float
+    position_avg: float | None = None
+
+
+class PerceptionBreakdownResponse(BaseModel):
+    """Perception breakdown with per-term and per-provider aggregated scores."""
+
+    project_id: str
+    total_responses: int = 0
+    brand_mentions: int = 0
+    by_term: list[PerceptionBreakdownByTerm] = Field(default_factory=list)
+    by_provider: list[PerceptionBreakdownByProvider] = Field(default_factory=list)
+
+
 class TrajectoryDataPoint(BaseModel):
     """Single data point in trajectory time-series."""
 

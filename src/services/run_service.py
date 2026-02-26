@@ -9,6 +9,9 @@ from typing import TYPE_CHECKING, Any
 from src.schemas import (
     MentionItem,
     PaginatedResponse,
+    PerceptionBreakdownByProvider,
+    PerceptionBreakdownByTerm,
+    PerceptionBreakdownResponse,
     PerceptionDataPoint,
     PerceptionResponse,
     ResponseItem,
@@ -24,13 +27,18 @@ if TYPE_CHECKING:
     from src.repos.response_repo import ResponseRepo
     from src.repos.run_repo import RunRepo
     from src.repos.score_repo import ScoreRepo
+    from src.repos.term_repo import TermRepo
 
 
 class RunService:
-    def __init__(self, run_repo: RunRepo, response_repo: ResponseRepo, score_repo: ScoreRepo) -> None:
+    def __init__(
+        self, run_repo: RunRepo, response_repo: ResponseRepo, score_repo: ScoreRepo,
+        term_repo: TermRepo | None = None,
+    ) -> None:
         self._run_repo = run_repo
         self._response_repo = response_repo
         self._score_repo = score_repo
+        self._term_repo = term_repo
 
     async def list_runs(
         self, project_id: str, limit: int, offset: int, status: str | None,
@@ -172,3 +180,37 @@ class RunService:
             for row in rows
         ]
         return TrajectoryResponse(project_id=project_id, data=data)
+
+    async def get_perception_breakdown(
+        self, project_id: str, term_names: dict[str, str],
+    ) -> PerceptionBreakdownResponse:
+        """Per-term and per-provider breakdown from the latest scoring period."""
+        total_responses, brand_mentions = await self._score_repo.get_latest_run_counts(project_id)
+        by_term_rows = await self._score_repo.get_latest_breakdown_by_term(project_id)
+        by_provider_rows = await self._score_repo.get_latest_breakdown_by_provider(project_id)
+
+        by_term = [
+            PerceptionBreakdownByTerm(
+                term_id=row["term_id"],
+                term_name=term_names.get(row["term_id"], row["term_id"]),
+                recommendation_share=row["recommendation_share"],
+                position_avg=row["position_avg"],
+            )
+            for row in by_term_rows
+        ]
+        by_provider = [
+            PerceptionBreakdownByProvider(
+                provider_name=row["provider_name"],
+                recommendation_share=row["recommendation_share"],
+                position_avg=row["position_avg"],
+            )
+            for row in by_provider_rows
+        ]
+
+        return PerceptionBreakdownResponse(
+            project_id=project_id,
+            total_responses=total_responses,
+            brand_mentions=brand_mentions,
+            by_term=by_term,
+            by_provider=by_provider,
+        )
