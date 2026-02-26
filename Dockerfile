@@ -32,6 +32,12 @@ COPY migrations/ ./migrations/
 # Create data directory for SQLite
 RUN mkdir -p /app/data
 
+# Version info baked at build time
+ARG APP_VERSION=dev
+ARG BUILD_TIME
+ENV APP_VERSION=${APP_VERSION}
+ENV BUILD_TIME=${BUILD_TIME}
+
 EXPOSE 8080
 
 CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]

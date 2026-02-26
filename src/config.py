@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-key-change-in-production"
     database_url: str = "./data/geo-storm.db"
 
+    # Version info (set via Docker build args or environment)
+    app_version: str | None = None
+    build_time: str | None = None
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

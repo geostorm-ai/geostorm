@@ -11,6 +11,7 @@ const currentPath = Astro.url.pathname
 				<path d="M2 12h20" />
 			</svg>
 			<span>GeoStorm</span>
+			<span id="app-version" class="text-xs text-muted-foreground"></span>
 		</a>
 		<nav class="ml-auto flex items-center gap-4">
 			<a
@@ -43,6 +44,14 @@ const currentPath = Astro.url.pathname
 </header>
 
 <script>
+	fetch("/api/version")
+		.then((r) => r.json())
+		.then((data) => {
+			const el = document.getElementById("app-version")
+			if (el && data.version) el.textContent = `v${data.version}`
+		})
+		.catch(() => {})
+
 	document.getElementById("theme-toggle")?.addEventListener("click", () => {
 		const html = document.documentElement
 		const isDark = html.classList.contains("dark")

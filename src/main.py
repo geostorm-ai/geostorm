@@ -32,6 +32,7 @@ logfire.configure(
 logfire.instrument_pydantic_ai()
 logging.basicConfig(handlers=[logfire.LogfireLoggingHandler()], level=logging.INFO)
 
+from src.config import get_settings
 from src.database import check_database_health, initialize_database
 from src.retention import cleanup_old_responses
 from src.routes.alerts import router as alerts_router
@@ -110,6 +111,36 @@ app.include_router(alerts_router)
 app.include_router(runs_router)
 app.include_router(setup_router)
 app.include_router(providers_router)
+
+
+class VersionResponse(BaseModel):
+    """Version info response."""
+
+    version: str
+    build_time: str | None
+
+
+def _get_version() -> str:
+    """Return the app version from env var or package metadata."""
+    settings = get_settings()
+    if settings.app_version:
+        return settings.app_version
+    try:
+        from importlib.metadata import version  # noqa: PLC0415
+
+        return version("geostorm")
+    except Exception:  # noqa: BLE001
+        return "dev"
+
+
+@app.get("/api/version")
+async def get_version() -> VersionResponse:
+    """Return the application version and build time."""
+    settings = get_settings()
+    return VersionResponse(
+        version=_get_version(),
+        build_time=settings.build_time,
+    )
 
 
 @app.get("/health")
