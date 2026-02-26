@@ -164,7 +164,9 @@ async def _execute_queries(
     failed_queries = 0
     lock = asyncio.Lock()
 
-    async def _run_one(term: object, provider_row: object) -> None:
+    async def _run_one(
+        term: Any, provider_row: Any,  # noqa: ANN401
+    ) -> None:
         nonlocal completed_queries, failed_queries
         term_id: str = term["id"]
         term_name: str = term["name"]
