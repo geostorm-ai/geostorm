@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -106,6 +106,19 @@ export function SetupWizard() {
 	const [submitError, setSubmitError] = useState<string | null>(null)
 	const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
 	const [monitorTriggered, setMonitorTriggered] = useState(false)
+
+	// Auto-redirect countdown
+	const [countdown, setCountdown] = useState(3)
+
+	useEffect(() => {
+		if (step !== 2 || !createdProjectId) return
+		if (countdown <= 0) {
+			window.location.href = `/projects/${createdProjectId}`
+			return
+		}
+		const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
+		return () => clearTimeout(timer)
+	}, [step, createdProjectId, countdown])
 
 	// API key hooks
 	const { data: apiKeyStatus } = useApiKeyStatus()
@@ -658,7 +671,11 @@ export function SetupWizard() {
 							</Badge>
 
 							<Button asChild className="mt-2">
-								<a href={`/projects/${createdProjectId}`}>Go to Project</a>
+								<a href={`/projects/${createdProjectId}`}>
+									{countdown > 0
+										? `Going to project in ${countdown}s...`
+										: "Go to Project"}
+								</a>
 							</Button>
 						</div>
 					</CardContent>

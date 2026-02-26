@@ -4,6 +4,7 @@ import { AlertsFeed } from "./AlertsFeed"
 import { MonitorButton } from "./MonitorButton"
 import { PerceptionChart } from "./PerceptionChart"
 import { ProjectTabs } from "./ProjectTabs"
+import { RecentRuns } from "./RecentRuns"
 import { SignalPanel } from "./SignalPanel"
 import { apiFetch } from "@/lib/api"
 import { useRuns } from "@/hooks/useRuns"
@@ -141,6 +142,7 @@ function ProjectDetailPageInner() {
 					<MonitorButton projectId={id} isDemo={project.is_demo} />
 				</div>
 
+				<RecentRuns projectId={id} />
 				<AlertsFeed projectId={id} runCount={runCount} />
 				<div className="mt-6">
 					<SignalPanel projectId={id} />

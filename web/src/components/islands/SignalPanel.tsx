@@ -1,42 +1,13 @@
 import { EmptyState } from "@/components/EmptyState"
 import { ScoreDisplay } from "@/components/ScoreDisplay"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePerception } from "@/hooks/usePerception"
 import { useRuns } from "@/hooks/useRuns"
-import { cn } from "@/lib/utils"
-import { getRunDisplay } from "@/lib/runs"
 import { BarChart3 } from "lucide-react"
-import type { Run } from "@/schemas/run"
 
 interface SignalPanelProps {
 	projectId: string
-}
-
-function RunItem({ run }: { run: Run }) {
-	const { displayStatus, statusColor, isPartial } = getRunDisplay(run)
-
-	return (
-		<div className="flex items-center justify-between border-b py-3 last:border-b-0">
-			<div className="flex items-center gap-3">
-				<Badge variant="secondary" className={cn(statusColor)}>
-					{displayStatus}
-				</Badge>
-				<span className="text-sm text-muted-foreground">
-					{new Date(run.created_at).toLocaleDateString()}
-				</span>
-			</div>
-			<span className="text-xs text-muted-foreground">
-				{run.completed_queries}/{run.total_queries} queries
-				{isPartial && (
-					<span className="ml-1 text-amber-600 dark:text-amber-400">
-						({run.failed_queries} failed)
-					</span>
-				)}
-			</span>
-		</div>
-	)
 }
 
 function LoadingSkeleton() {
@@ -52,12 +23,6 @@ function LoadingSkeleton() {
 						<Skeleton className="h-4 w-24" />
 						<Skeleton className="h-8 w-20" />
 					</div>
-				))}
-			</div>
-			<div className="space-y-3">
-				<Skeleton className="h-4 w-32" />
-				{[1, 2, 3].map((i) => (
-					<Skeleton key={i} className="h-10 w-full" />
 				))}
 			</div>
 		</div>
@@ -90,7 +55,6 @@ export function SignalPanel({ projectId }: SignalPanelProps) {
 			: null
 
 	const runCount = runsData?.total ?? 0
-	const runs = runsData?.items ?? []
 
 	if (isLoading) {
 		return (
@@ -167,21 +131,6 @@ export function SignalPanel({ projectId }: SignalPanelProps) {
 						)}
 					</>
 				)}
-
-				<div>
-					<h3 className="mb-3 text-sm font-semibold text-muted-foreground">
-						Recent Runs
-					</h3>
-					{runs.length === 0 ? (
-						<p className="text-sm text-muted-foreground">No runs yet.</p>
-					) : (
-						<div>
-							{runs.map((run) => (
-								<RunItem key={run.id} run={run} />
-							))}
-						</div>
-					)}
-				</div>
 			</CardContent>
 		</Card>
 	)
