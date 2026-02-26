@@ -156,21 +156,25 @@ async def _create_run_record(
 async def _execute_queries(
     run_id: str, project_id: str, terms: Sequence[Any], providers: Sequence[Any],
 ) -> tuple[int, int]:
-    """Execute all term x provider queries and return (completed, failed) counts."""
-    completed_queries = 0
-    failed_queries = 0
+    """Execute all term x provider queries in parallel (up to 3 concurrent) and return (completed, failed) counts."""
     total_queries = len(terms) * len(providers)
     system_prompt = get_system_prompt()
+    semaphore = asyncio.Semaphore(3)
+    completed_queries = 0
+    failed_queries = 0
+    lock = asyncio.Lock()
 
-    for term in terms:
+    async def _run_one(
+        term: Any, provider_row: Any,  # noqa: ANN401
+    ) -> None:
+        nonlocal completed_queries, failed_queries
         term_id: str = term["id"]
         term_name: str = term["name"]
         prompt_text = generate_prompt(term_name)
+        provider_name: str = provider_row["provider_name"]
+        model_name: str = provider_row["model_name"]
 
-        for provider_row in providers:
-            provider_name: str = provider_row["provider_name"]
-            model_name: str = provider_row["model_name"]
-
+        async with semaphore:
             progress_bus.publish(RunProgressEvent(
                 run_id=run_id, phase=RunPhase.querying,
                 completed=completed_queries, failed=failed_queries, total=total_queries,
@@ -180,21 +184,26 @@ async def _execute_queries(
             success = await _execute_single_query(
                 run_id, project_id, term_id, provider_name, model_name, prompt_text, system_prompt,
             )
-            if success:
-                completed_queries += 1
-            else:
-                failed_queries += 1
 
-            # Incremental DB update so polling clients see progress immediately
-            await _update_run_progress(run_id, completed_queries, failed_queries)
+            async with lock:
+                if success:
+                    completed_queries += 1
+                else:
+                    failed_queries += 1
 
-            progress_bus.publish(RunProgressEvent(
-                run_id=run_id, phase=RunPhase.querying,
-                completed=completed_queries, failed=failed_queries, total=total_queries,
-                current_term=term_name, current_provider=provider_name,
-            ))
+                await _update_run_progress(run_id, completed_queries, failed_queries)
 
-            await asyncio.sleep(0.1)
+                progress_bus.publish(RunProgressEvent(
+                    run_id=run_id, phase=RunPhase.querying,
+                    completed=completed_queries, failed=failed_queries, total=total_queries,
+                    current_term=term_name, current_provider=provider_name,
+                ))
+
+    await asyncio.gather(*[
+        _run_one(term, provider_row)
+        for term in terms
+        for provider_row in providers
+    ])
 
     return completed_queries, failed_queries
 
