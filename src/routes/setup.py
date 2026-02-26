@@ -121,7 +121,7 @@ async def autofill_project(req: AutofillRequest) -> AutofillResponse:
             )
         except LLMError as e:
             logger.warning("Autofill LLM error: %s", e)
-            raise HTTPException(status_code=502, detail="AI service error") from e
+            raise HTTPException(status_code=502, detail=str(e)) from e
         except Exception as e:
             logger.warning("Autofill error: %s", e)
             raise HTTPException(status_code=502, detail="AI returned invalid response") from e
