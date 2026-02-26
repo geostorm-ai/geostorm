@@ -245,9 +245,13 @@ async def trigger_monitoring(project_id: str) -> dict[str, str]:
 
         if run_ids:
             placeholders = ",".join("?" for _ in run_ids)
+            resp_sub = f"SELECT id FROM responses WHERE run_id IN ({placeholders})"
             await db.execute(
-                "DELETE FROM mentions WHERE response_id IN "
-                f"(SELECT id FROM responses WHERE run_id IN ({placeholders}))",
+                f"DELETE FROM mentions WHERE response_id IN ({resp_sub})",
+                run_ids,
+            )
+            await db.execute(
+                f"DELETE FROM citations WHERE response_id IN ({resp_sub})",
                 run_ids,
             )
             await db.execute(
