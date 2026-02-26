@@ -229,6 +229,30 @@ async def trigger_monitoring(project_id: str) -> dict[str, str]:
             status_code=400,
             detail="No API key configured. Add your OpenRouter API key in Settings to run monitoring.",
         )
+
+    # Cancel any currently running background monitoring tasks
+    for t in list(_background_tasks):
+        if not t.done():
+            t.cancel()
+    _background_tasks.clear()
+
+    # Clear old run data for this project so we start fresh
+    async with get_db_connection() as db:
+        run_ids_cursor = await db.execute(
+            "SELECT id FROM runs WHERE project_id = ?", (project_id,),
+        )
+        run_ids = [row["id"] for row in await run_ids_cursor.fetchall()]
+
+        if run_ids:
+            placeholders = ",".join("?" for _ in run_ids)
+            await db.execute(f"DELETE FROM mentions WHERE response_id IN (SELECT id FROM responses WHERE run_id IN ({placeholders}))", run_ids)
+            await db.execute(f"DELETE FROM responses WHERE run_id IN ({placeholders})", run_ids)
+            await db.execute(f"DELETE FROM runs WHERE id IN ({placeholders})", run_ids)
+
+        await db.execute("DELETE FROM perception_scores WHERE project_id = ?", (project_id,))
+        await db.execute("DELETE FROM alerts WHERE project_id = ?", (project_id,))
+        await db.commit()
+
     logfire.info('monitoring triggered', project_id=project_id, trigger='manual')
     task = asyncio.create_task(execute_monitoring_run(project_id, trigger_type="manual"))
     _background_tasks.add(task)
