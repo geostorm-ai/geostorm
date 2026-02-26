@@ -131,11 +131,12 @@ export function AlertsFeed({ projectId, runCount }: AlertsFeedProps) {
 
 				{!isLoading && !error && sorted.length === 0 && (
 					<EmptyState
+						className="py-4"
 						icon={
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								width="32"
-								height="32"
+								width="24"
+								height="24"
 								viewBox="0 0 24 24"
 								fill="none"
 								stroke="currentColor"
