@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 import time
+from http import HTTPStatus
 from typing import TypeVar
 
 from genai_prices import Usage, calc_price
@@ -14,6 +16,60 @@ from src.llm.base import LLMError, PromptRequest, PromptResponse, ProviderType
 from src.llm.factory import create_model
 
 T = TypeVar("T", bound=BaseModel)
+
+_STATUS_CODE_RE = re.compile(r"status_code:\s*(\d{3})")
+
+_ERROR_MAP: dict[int, tuple[str, bool]] = {
+    HTTPStatus.UNAUTHORIZED: (
+        "Authentication failed. Your OpenRouter API key is invalid or has been disabled. "
+        "Go to Settings to enter a valid key (starts with sk-or-).",
+        False,
+    ),
+    HTTPStatus.PAYMENT_REQUIRED: (
+        "Insufficient credits. Your OpenRouter account has no remaining funds. "
+        "Add credits at openrouter.ai/credits and try again.",
+        False,
+    ),
+    HTTPStatus.FORBIDDEN: (
+        "Request blocked. The AI model flagged this request as requiring moderation. "
+        "Try rephrasing your monitoring terms.",
+        False,
+    ),
+    HTTPStatus.REQUEST_TIMEOUT: (
+        "Request timed out. The AI model took too long to respond. "
+        "This is usually temporary — try again in a few minutes.",
+        True,
+    ),
+    HTTPStatus.TOO_MANY_REQUESTS: (
+        "Rate limited. Too many requests to OpenRouter. "
+        "Wait a few minutes and try again, or check your rate limits at openrouter.ai.",
+        True,
+    ),
+    HTTPStatus.BAD_GATEWAY: (
+        "Model unavailable. The selected AI model is temporarily down. "
+        "This is usually temporary — try again shortly.",
+        True,
+    ),
+    HTTPStatus.SERVICE_UNAVAILABLE: (
+        "No model provider available. No provider can currently serve this model. "
+        "Try again later or switch to a different model.",
+        True,
+    ),
+}
+
+
+def _classify_llm_error(exc: Exception, provider: ProviderType) -> LLMError:
+    """Inspect an LLM exception and return a user-friendly LLMError."""
+    raw = str(exc)
+    if provider == ProviderType.OPENROUTER:
+        match = _STATUS_CODE_RE.search(raw)
+        if match:
+            status = int(match.group(1))
+            if status in _ERROR_MAP:
+                message, retryable = _ERROR_MAP[status]
+                return LLMError(message, provider=provider, is_retryable=retryable)
+        return LLMError(f"OpenRouter error: {raw}", provider=provider)
+    return LLMError(raw, provider=provider)
 
 
 async def send_prompt(request: PromptRequest, provider_type: ProviderType) -> PromptResponse:
@@ -27,7 +83,7 @@ async def send_prompt(request: PromptRequest, provider_type: ProviderType) -> Pr
     try:
         result = await agent.run(request.prompt, model_settings=settings)
     except Exception as e:
-        raise LLMError(str(e), provider=provider_type) from e
+        raise _classify_llm_error(e, provider_type) from e
     latency_ms = int((time.perf_counter() - start) * 1000)
 
     usage = result.usage()
@@ -74,7 +130,7 @@ async def send_structured_prompt(
     try:
         result = await agent.run(request.prompt, model_settings=settings)
     except Exception as e:
-        raise LLMError(str(e), provider=provider_type) from e
+        raise _classify_llm_error(e, provider_type) from e
 
     return result.output
 

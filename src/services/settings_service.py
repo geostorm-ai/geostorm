@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import re
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from pydantic_ai import Agent
@@ -21,9 +23,15 @@ logger = logging.getLogger(__name__)
 # Cheap model on OpenRouter for key validation
 _VALIDATION_MODEL = "google/gemini-2.5-flash-lite"
 
+_STATUS_CODE_RE = re.compile(r"status_code:\s*(\d{3})")
 
 _AUTH_ERROR_MSG = (
     "Invalid API key. Please check that you're using a valid OpenRouter API key (starts with sk-or-)."
+)
+
+_NO_CREDITS_MSG = (
+    "Insufficient credits. Your OpenRouter account has no remaining funds. "
+    "Add credits at openrouter.ai/credits and try again."
 )
 
 
@@ -48,9 +56,15 @@ async def validate_openrouter_key(api_key: str) -> None:
         await agent.run("Hi")
     except Exception as exc:
         err = str(exc)
-        if "401" in err or "auth" in err.lower() or "Missing Authentication" in err:
+        match = _STATUS_CODE_RE.search(err)
+        status = int(match.group(1)) if match else None
+
+        if status == HTTPStatus.UNAUTHORIZED or "auth" in err.lower() or "Missing Authentication" in err:
             logger.warning("OpenRouter API key validation failed: %s", err)
             raise InvalidApiKeyError from exc
+        if status == HTTPStatus.PAYMENT_REQUIRED:
+            logger.warning("OpenRouter account has no credits: %s", err)
+            raise InvalidApiKeyError(_NO_CREDITS_MSG) from exc
         logger.warning("OpenRouter API key validation error: %s", err)
         raise InvalidApiKeyError(f"Could not validate API key: {err}") from exc  # noqa: TRY003
 
