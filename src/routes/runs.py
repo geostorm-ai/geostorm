@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from src.container import run_service
+from src.container import run_repo, run_service
 from src.progress import RunPhase, RunProgressEvent, progress_bus
 from src.routes.deps import get_project_or_404
 from src.schemas import (  # noqa: TC001
@@ -137,8 +137,6 @@ async def list_responses(
     offset: int = Query(default=0, ge=0),
 ) -> PaginatedResponse[ResponseItem]:
     """Paginated responses with nested mentions for a run."""
-    from src.container import run_repo  # noqa: PLC0415
-
     run = await run_repo.get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
