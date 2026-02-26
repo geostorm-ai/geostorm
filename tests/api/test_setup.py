@@ -226,7 +226,11 @@ async def test_store_and_retrieve_api_key(tmp_path):
     await _init_db(db_path)
 
     (p1,) = _patches(db_path)
-    with p1, patch("src.services.settings_service.get_settings", return_value=_fake_settings()):
+    with (
+        p1,
+        patch("src.services.settings_service.get_settings", return_value=_fake_settings()),
+        patch("src.services.settings_service.validate_openrouter_key", new_callable=AsyncMock),
+    ):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
@@ -245,12 +249,45 @@ async def test_store_and_retrieve_api_key(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_store_api_key_invalid_returns_400(tmp_path):
+    from src.services.settings_service import InvalidApiKeyError
+
+    db_path = str(tmp_path / "test.db")
+    await _init_db(db_path)
+
+    (p1,) = _patches(db_path)
+    with (
+        p1,
+        patch("src.services.settings_service.get_settings", return_value=_fake_settings()),
+        patch(
+            "src.services.settings_service.validate_openrouter_key",
+            new_callable=AsyncMock,
+            side_effect=InvalidApiKeyError("Invalid API key."),
+        ),
+    ):
+        test_app = FastAPI()
+        test_app.include_router(router)
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                "/api/settings/api-key",
+                json={"key": "bad-key"},
+            )
+            assert resp.status_code == 400
+            assert "Invalid API key" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_delete_api_key(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
     (p1,) = _patches(db_path)
-    with p1, patch("src.services.settings_service.get_settings", return_value=_fake_settings()):
+    with (
+        p1,
+        patch("src.services.settings_service.get_settings", return_value=_fake_settings()),
+        patch("src.services.settings_service.validate_openrouter_key", new_callable=AsyncMock),
+    ):
         test_app = FastAPI()
         test_app.include_router(router)
         transport = ASGITransport(app=test_app)
