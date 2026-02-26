@@ -183,6 +183,17 @@ async def stream_run_progress(run_id: str) -> StreamingResponse:
             yield f"data: {json.dumps(event.to_dict())}\n\n"
             return
 
+        # Send an initial snapshot so the client renders immediately
+        initial = RunProgressEvent(
+            run_id=run_id,
+            phase=RunPhase.preparing if status == "pending" else RunPhase.querying,
+            completed=run["completed_queries"],
+            failed=run["failed_queries"],
+            total=run["total_queries"],
+            status=status,
+        )
+        yield f"data: {json.dumps(initial.to_dict())}\n\n"
+
         queue = progress_bus.subscribe(run_id)
         try:
             while True:
