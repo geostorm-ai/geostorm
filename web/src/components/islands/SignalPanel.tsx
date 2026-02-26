@@ -207,12 +207,19 @@ export function SignalPanel({ projectId }: SignalPanelProps) {
 								trend={showTrend(latestPoint?.trend_direction) ? latestPoint?.trend_direction : undefined}
 								description="How often AI recommends you"
 							/>
-							<ScoreDisplay
-								label="Avg. Ranking"
-								value={latestPoint?.position_avg ?? null}
-								format="number"
-								description="Your typical spot in recommendation lists (lower is better)"
-							/>
+							<div className="flex flex-col gap-1">
+								<span className="text-sm text-muted-foreground">Avg. Ranking</span>
+								<span className="text-3xl font-bold tracking-tight">
+									{latestPoint?.position_avg != null
+										? `#${Math.round(latestPoint.position_avg)}`
+										: "--"}
+								</span>
+								<span className="text-xs text-muted-foreground">
+									{breakdown && breakdown.ranked_responses > 0 && latestPoint?.position_avg != null
+										? `Ranked #${Math.round(latestPoint.position_avg)} based on ${breakdown.brand_mentions} responses that mentioned you`
+										: "Position in AI recommendation lists"}
+								</span>
+							</div>
 							<CompetitorDelta delta={latestPoint?.competitor_delta ?? null} />
 						</div>
 

@@ -146,16 +146,21 @@ class ScoringService:
 
         for rid in resp_ids:
             has_brand = False
+            best_position: int | None = None
             response_competitors: set[str] = set()
             for m in mention_map.get(rid, []):
                 if m["mention_type"] == MentionType.BRAND.value:
                     has_brand = True
                     if m["list_position"] is not None:
-                        brand_positions.append(int(str(m["list_position"])))
+                        pos = int(str(m["list_position"]))
+                        if best_position is None or pos < best_position:
+                            best_position = pos
                 elif m["mention_type"] == MentionType.COMPETITOR.value:
                     response_competitors.add(str(m["target_name"]))
             if has_brand:
                 brand_count += 1
+                if best_position is not None:
+                    brand_positions.append(best_position)
             for comp in response_competitors:
                 competitor_shares[comp] += 1
 

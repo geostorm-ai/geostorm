@@ -163,8 +163,8 @@ class ScoreRepo:
 
     async def get_latest_run_counts(
         self, project_id: str,
-    ) -> tuple[int, int]:
-        """Return (total_responses, brand_mentions) from the latest completed run."""
+    ) -> tuple[int, int, int]:
+        """Return (total_responses, brand_mentions, ranked_responses) from the latest completed run."""
         async with self._get_connection() as db:
             cursor = await db.execute(
                 "SELECT id FROM runs"
@@ -174,7 +174,7 @@ class ScoreRepo:
             )
             run_row = await cursor.fetchone()
             if not run_row:
-                return 0, 0
+                return 0, 0, 0
             run_id = run_row["id"]
 
             cursor = await db.execute(
@@ -194,7 +194,17 @@ class ScoreRepo:
             mention_row = await cursor.fetchone()
             mentions = mention_row["mentioned"] if mention_row else 0
 
-        return total, mentions
+            cursor = await db.execute(
+                "SELECT COUNT(DISTINCT resp.id) AS ranked FROM responses resp"
+                " INNER JOIN mentions m ON m.response_id = resp.id"
+                " WHERE resp.run_id = ? AND resp.error_message IS NULL"
+                " AND m.mention_type = 'brand' AND m.list_position IS NOT NULL",
+                (run_id,),
+            )
+            ranked_row = await cursor.fetchone()
+            ranked = ranked_row["ranked"] if ranked_row else 0
+
+        return total, mentions, ranked
 
     async def store_scores(
         self,

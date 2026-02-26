@@ -51,6 +51,7 @@ export const ResponseSchema = z.object({
 	id: z.string(),
 	run_id: z.string(),
 	term_id: z.string(),
+	term_name: z.string(),
 	provider_name: z.string(),
 	model_name: z.string(),
 	response_text: z.string(),

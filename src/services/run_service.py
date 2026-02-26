@@ -100,10 +100,14 @@ class RunService:
         return await self._run_repo.get_run_status(run_id)
 
     async def list_responses(
-        self, run_id: str, limit: int, offset: int,
+        self, run_id: str, project_id: str, limit: int, offset: int,
     ) -> PaginatedResponse[ResponseItem]:
         """Paginated responses with batch-loaded mentions (fixes N+1)."""
         total, resp_rows = await self._response_repo.list_responses_for_run(run_id, limit, offset)
+
+        # Build term_id -> name lookup
+        term_rows = await self._term_repo.list_active_term_ids_and_names(project_id)
+        term_names: dict[str, str] = {row["id"]: row["name"] for row in term_rows}
 
         response_ids = [r["id"] for r in resp_rows]
         mention_rows = await self._response_repo.get_mentions_for_responses(response_ids)
@@ -133,6 +137,7 @@ class RunService:
                     id=resp_row["id"],
                     run_id=resp_row["run_id"],
                     term_id=resp_row["term_id"],
+                    term_name=term_names.get(resp_row["term_id"], resp_row["term_id"]),
                     provider_name=resp_row["provider_name"],
                     model_name=resp_row["model_name"],
                     response_text=resp_row["response_text"],
@@ -185,7 +190,7 @@ class RunService:
         self, project_id: str, term_names: dict[str, str],
     ) -> PerceptionBreakdownResponse:
         """Per-term and per-provider breakdown from the latest scoring period."""
-        total_responses, brand_mentions = await self._score_repo.get_latest_run_counts(project_id)
+        total_responses, brand_mentions, ranked_responses = await self._score_repo.get_latest_run_counts(project_id)
         by_term_rows = await self._score_repo.get_latest_breakdown_by_term(project_id)
         by_provider_rows = await self._score_repo.get_latest_breakdown_by_provider(project_id)
 
@@ -211,6 +216,7 @@ class RunService:
             project_id=project_id,
             total_responses=total_responses,
             brand_mentions=brand_mentions,
+            ranked_responses=ranked_responses,
             by_term=by_term,
             by_provider=by_provider,
         )

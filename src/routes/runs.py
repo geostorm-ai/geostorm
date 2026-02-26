@@ -141,7 +141,7 @@ async def list_responses(
     run = await run_repo.get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    return await run_service.list_responses(run_id, limit, offset)
+    return await run_service.list_responses(run_id, run["project_id"], limit, offset)
 
 
 # ---------------------------------------------------------------------------

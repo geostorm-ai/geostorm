@@ -70,6 +70,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 }
 
 interface AutofillData {
+	project_name: string
 	brand_name: string
 	brand_aliases: string[]
 	description: string
@@ -155,6 +156,7 @@ export function SetupWizard() {
 	}
 
 	function applyAutofillData(data: AutofillData) {
+		if (data.project_name) setProjectName(data.project_name)
 		if (data.brand_name) setBrandName(data.brand_name)
 		if (data.brand_aliases?.length) setBrandAliases(data.brand_aliases.join(", "))
 		if (data.description) setDescription(data.description)

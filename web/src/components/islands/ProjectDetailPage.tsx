@@ -144,10 +144,10 @@ function ProjectDetailPageInner() {
 				</div>
 
 				<RecentRuns projectId={id} />
-				<AlertsFeed projectId={id} runCount={runCount} />
 				<div className="mt-6">
 					<SignalPanel projectId={id} />
 				</div>
+				<AlertsFeed projectId={id} runCount={runCount} />
 				<VisibilityBreakdown projectId={id} />
 				<div className="mt-6">
 					<ProjectTabs projectId={id} isDemo={project.is_demo} />

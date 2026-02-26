@@ -70,6 +70,7 @@ Use web search to verify real product information — official names, actual \
 competitors, what the product really does. Don't guess.
 
 Given a company name, URL, GitHub repo, or package name, return a JSON object with:
+- project_name: a short, human-friendly project name (usually the brand name itself)
 - brand_name: the official brand/product name
 - brand_aliases: list of common alternative names, abbreviations, or misspellings
 - description: a one-sentence description of what this brand/product does
@@ -127,6 +128,7 @@ async def autofill_project(req: AutofillRequest) -> AutofillResponse:
             raise HTTPException(status_code=502, detail="AI returned invalid response") from e
 
     return AutofillResponse(
+        project_name=data.project_name,
         brand_name=data.brand_name,
         brand_aliases=data.brand_aliases,
         description=data.description,

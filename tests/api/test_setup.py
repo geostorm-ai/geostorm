@@ -315,6 +315,7 @@ async def test_autofill_success(tmp_path):
     await _init_db(db_path)
 
     mock_structured = AsyncMock(return_value=AutofillLLMResponse(
+        project_name="Supabase",
         brand_name="Supabase",
         brand_aliases=["supabase"],
         description="Open source Firebase alternative.",

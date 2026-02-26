@@ -260,6 +260,7 @@ class ResponseItem(BaseModel):
     id: str
     run_id: str
     term_id: str
+    term_name: str
     provider_name: str
     model_name: str
     response_text: str
@@ -398,6 +399,7 @@ class PerceptionBreakdownResponse(BaseModel):
     project_id: str
     total_responses: int = 0
     brand_mentions: int = 0
+    ranked_responses: int = 0
     by_term: list[PerceptionBreakdownByTerm] = Field(default_factory=list)
     by_provider: list[PerceptionBreakdownByProvider] = Field(default_factory=list)
 
@@ -442,11 +444,14 @@ class ApiKeyStatusResponse(BaseModel):
 class AutofillLLMResponse(BaseModel):
     """Structured output expected from the autofill LLM call."""
 
-    brand_name: str
-    brand_aliases: list[str]
-    description: str
-    competitors: list[str]
-    monitoring_terms: list[str]
+    project_name: str = Field(description="Short, human-friendly project name (usually the brand name itself)")
+    brand_name: str = Field(description="Official brand or product name")
+    brand_aliases: list[str] = Field(description="Common alternative names, abbreviations, or misspellings")
+    description: str = Field(description="One-sentence description of what this brand/product does")
+    competitors: list[str] = Field(description="3-5 direct competitor names")
+    monitoring_terms: list[str] = Field(
+        description="5-8 short noun phrases that complete 'What are the best options for {term}?' naturally",
+    )
 
 
 class AutofillRequest(BaseModel):
@@ -458,6 +463,7 @@ class AutofillRequest(BaseModel):
 class AutofillResponse(BaseModel):
     """AI-generated project details."""
 
+    project_name: str
     brand_name: str
     brand_aliases: list[str] = Field(default_factory=list)
     description: str

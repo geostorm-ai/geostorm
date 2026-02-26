@@ -21,6 +21,7 @@ export const PerceptionBreakdownResponseSchema = z.object({
 	project_id: z.string(),
 	total_responses: z.number(),
 	brand_mentions: z.number(),
+	ranked_responses: z.number(),
 	by_term: z.array(BreakdownByTermSchema),
 	by_provider: z.array(BreakdownByProviderSchema),
 })

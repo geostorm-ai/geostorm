@@ -40,6 +40,11 @@ export function ResponseViewer({ runId }: ResponseViewerProps) {
 			{responses.map((response) => (
 				<Card key={response.id}>
 					<CardHeader className="pb-2">
+						<div className="mb-1">
+							<p className="text-xs font-medium text-muted-foreground">
+								&ldquo;What are the best options for <span className="font-semibold text-foreground">{response.term_name}</span>?&rdquo;
+							</p>
+						</div>
 						<div className="flex items-center justify-between">
 							<CardTitle className="text-sm font-medium">
 								{response.model_name}
