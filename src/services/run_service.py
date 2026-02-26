@@ -106,8 +106,10 @@ class RunService:
         total, resp_rows = await self._response_repo.list_responses_for_run(run_id, limit, offset)
 
         # Build term_id -> name lookup
-        term_rows = await self._term_repo.list_active_term_ids_and_names(project_id)
-        term_names: dict[str, str] = {row["id"]: row["name"] for row in term_rows}
+        term_names: dict[str, str] = {}
+        if self._term_repo is not None:
+            term_rows = await self._term_repo.list_active_term_ids_and_names(project_id)
+            term_names = {row["id"]: row["name"] for row in term_rows}
 
         response_ids = [r["id"] for r in resp_rows]
         mention_rows = await self._response_repo.get_mentions_for_responses(response_ids)
