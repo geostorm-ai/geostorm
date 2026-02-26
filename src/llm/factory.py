@@ -28,8 +28,8 @@ async def get_api_key(provider_type: ProviderType) -> str | None:
             value = await settings_repo.get_setting(db_key)
             if value and value.strip():
                 return value.strip()
-        except Exception:  # noqa: BLE001
-            logger.debug("Could not read API key from database for %s", provider_type)
+        except Exception:
+            logger.warning("Could not read API key from database for %s", provider_type, exc_info=True)
 
     env_attr = _PROVIDER_KEY_MAP.get(provider_type)
     if env_attr:

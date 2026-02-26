@@ -21,6 +21,7 @@ from src.schemas import (
     SetupStatusResponse,
     StoreApiKeyRequest,
 )
+from src.services.settings_service import InvalidApiKeyError
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,10 @@ async def get_api_key_status() -> ApiKeyStatusResponse:
 @router.post("/settings/api-key")
 async def store_api_key(req: StoreApiKeyRequest) -> dict[str, Any]:
     now = datetime.now(tz=UTC).isoformat()
-    await settings_service.store_api_key(req.key, now)
+    try:
+        await settings_service.store_api_key(req.key, now)
+    except InvalidApiKeyError as e:
+        raise HTTPException(status_code=400, detail=e.message) from e
     return {"status": "stored"}
 
 
