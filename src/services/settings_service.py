@@ -24,6 +24,9 @@ _VALIDATION_MODEL = "google/gemini-2.5-flash-lite"
 
 _STATUS_CODE_RE = re.compile(r"status_code:\s*(\d{3})")
 
+_HTTP_UNAUTHORIZED = 401
+_HTTP_PAYMENT_REQUIRED = 402
+
 _AUTH_ERROR_MSG = (
     "Invalid API key. Please check that you're using a valid OpenRouter API key (starts with sk-or-)."
 )
@@ -58,10 +61,10 @@ async def validate_openrouter_key(api_key: str) -> None:
         match = _STATUS_CODE_RE.search(err)
         status = int(match.group(1)) if match else None
 
-        if status == 401 or "auth" in err.lower() or "Missing Authentication" in err:
+        if status == _HTTP_UNAUTHORIZED or "auth" in err.lower() or "Missing Authentication" in err:
             logger.warning("OpenRouter API key validation failed: %s", err)
             raise InvalidApiKeyError from exc
-        if status == 402:
+        if status == _HTTP_PAYMENT_REQUIRED:
             logger.warning("OpenRouter account has no credits: %s", err)
             raise InvalidApiKeyError(_NO_CREDITS_MSG) from exc
         logger.warning("OpenRouter API key validation error: %s", err)
