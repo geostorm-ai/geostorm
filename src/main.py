@@ -32,8 +32,9 @@ logfire.configure(
 logfire.instrument_pydantic_ai()
 logging.basicConfig(handlers=[logfire.LogfireLoggingHandler()], level=logging.INFO)
 
+from src.analytics import capture_server_started, init_analytics, shutdown_analytics
 from src.config import get_settings
-from src.database import check_database_health, initialize_database
+from src.database import check_database_health, get_server_id, initialize_database
 from src.mcp_server import mcp as mcp_server
 from src.retention import cleanup_old_responses
 from src.routes.alerts import router as alerts_router
@@ -68,6 +69,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     with logfire.span('geostorm startup'):
         await initialize_database()
+        server_id = await get_server_id()
+        if server_id:
+            init_analytics(server_id)
+            capture_server_started()
 
     _scheduler = AsyncScheduler()
     async with _scheduler:
@@ -88,6 +93,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             yield
 
     _scheduler = None
+    shutdown_analytics()
     logger.info("GeoStorm shutting down")
 
 

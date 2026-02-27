@@ -162,6 +162,10 @@ GeoStorm works out of the box with zero configuration. You can optionally config
 
 All notification channels are optional. GeoStorm always displays alerts in the UI regardless of notification configuration.
 
+### Telemetry
+
+GeoStorm is 100% free and open source. The only telemetry is an anonymous ping when the server starts and when a monitoring run completes — no names, no IPs, no project data, nothing identifiable. This helps us know the project is being used, which keeps it maintained. You can [turn it off anytime](#how-do-i-disable-telemetry).
+
 ---
 
 ## Contributing
@@ -247,6 +251,22 @@ GeoStorm itself is free. The only cost is the AI API usage through OpenRouter. A
 You could wire up an OpenClaw agent with a cron job to query AI models daily and store the results somewhere. But then you're building GeoStorm from scratch -- prompt engineering for consistent structured responses, parsing and normalizing across models, calculating recommendation share and position rankings, detecting changes over time, generating alerts, and building a UI to make sense of it all.
 
 GeoStorm does all of that out of the box. It's also cheaper and more predictable -- GeoStorm runs deterministic code on a fixed schedule, so you know exactly what queries run and what they cost. An AI agent deciding what to do each run can drift, retry unpredictably, or burn tokens on reasoning overhead. One container, no agent framework required.
+
+</details>
+
+<details>
+<summary><strong>How do I disable telemetry?</strong></summary>
+<br>
+
+Set the `NO_TELEMETRY=true` environment variable. This completely disables all analytics — no PostHog client is created and no events are sent. See [PRIVACY.md](PRIVACY.md) for full details on what is (and isn't) collected.
+
+```bash
+# Docker
+docker run -e NO_TELEMETRY=true ...
+
+# .env file
+NO_TELEMETRY=true
+```
 
 </details>
 

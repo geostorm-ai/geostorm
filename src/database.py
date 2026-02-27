@@ -1,8 +1,10 @@
 """Async SQLite database connection and initialization."""
 
 import logging
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
 import aiosqlite
@@ -30,6 +32,17 @@ async def get_db_connection() -> AsyncIterator[aiosqlite.Connection]:
         yield db
     finally:
         await db.close()
+
+
+async def get_server_id() -> str | None:
+    """Return the anonymous server_id from the settings table."""
+    try:
+        async with get_db_connection() as db:
+            cursor = await db.execute("SELECT value FROM settings WHERE key = 'server_id'")
+            row = await cursor.fetchone()
+            return row["value"] if row else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 async def check_database_health() -> bool:
@@ -62,6 +75,15 @@ async def initialize_database() -> None:
             await db.execute("PRAGMA foreign_keys = ON")
             await db.commit()
             logger.info("Database initialized at %s", db_path)
+
+            # Ensure a persistent anonymous server_id exists for analytics
+            cursor = await db.execute("SELECT value FROM settings WHERE key = 'server_id'")
+            if await cursor.fetchone() is None:
+                await db.execute(
+                    "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)",
+                    ("server_id", uuid.uuid4().hex, datetime.now(tz=UTC).isoformat()),
+                )
+                await db.commit()
 
             # Seed demo project on first startup if it doesn't exist
             cursor = await db.execute("SELECT id FROM projects WHERE is_demo = 1")

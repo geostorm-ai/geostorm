@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import logfire
 
+from src.analytics import capture_run_completed
 from src.container import provider_repo, response_repo, run_repo, schedule_repo, term_repo
 from src.llm.base import LLMError, PromptRequest, ProviderType, with_web_search
 from src.llm.client import send_prompt
@@ -220,6 +221,7 @@ async def _finalize_run(run_id: str, project_id: str, schedule_id: str | None, c
         await schedule_repo.update_last_run_at(schedule_id, completed_at)
 
     logger.info("Run %s finished: status=%s, completed=%d, failed=%d", run_id, final_status, completed, failed)
+    capture_run_completed()
 
     total = completed + failed
 

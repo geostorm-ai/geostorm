@@ -16,7 +16,7 @@ WORKDIR /app
 
 # Install Python dependencies first (cache layer)
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --extra analytics
 
 # Build frontend
 COPY web/ ./web/
@@ -37,6 +37,10 @@ ARG APP_VERSION=dev
 ARG BUILD_TIME
 ENV APP_VERSION=${APP_VERSION}
 ENV BUILD_TIME=${BUILD_TIME}
+
+# Analytics (injected at build time, overridable at runtime)
+ARG POSTHOG_PROJECT_API_KEY
+ENV POSTHOG_PROJECT_API_KEY=${POSTHOG_PROJECT_API_KEY}
 
 EXPOSE 8080
 

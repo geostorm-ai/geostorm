@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_from: str | None = None
 
+    # Telemetry
+    no_telemetry: bool = False
+    posthog_project_api_key: str | None = None
+    posthog_host: str = "https://eu.i.posthog.com"
+
     # Application
     secret_key: str = "dev-secret-key-change-in-production"
     database_url: str = "./data/geo-storm.db"
