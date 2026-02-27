@@ -13,7 +13,7 @@ _posthog_client: Any = None
 _server_id: str | None = None
 
 _POSTHOG_API_KEY = "phc_LX4wF7msg0Hej7qjsfLCiWPZuD8rzXpbUCS0VhGtjWT"
-_POSTHOG_HOST = "https://us.i.posthog.com"
+_POSTHOG_HOST = "https://eu.i.posthog.com"
 
 
 def init_analytics(server_id: str) -> None:
