@@ -44,6 +44,10 @@ One container, one command.
 
 ---
 
+Built with spec-driven development via [Shotgun](https://shotgun.sh/) ([GitHub](https://github.com/shotgun-sh/shotgun))
+
+---
+
 ## Quick Start
 
 ```bash
