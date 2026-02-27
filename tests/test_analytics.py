@@ -24,7 +24,7 @@ def _reset_analytics():
     analytics_mod._server_id = None
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_posthog():
     """Provide a mock PostHog client and patch the import."""
     mock_client = MagicMock()
@@ -39,7 +39,7 @@ def mock_posthog():
 
 class TestInitAnalytics:
     def test_creates_client(self, mock_posthog):
-        mock_client, mock_class = mock_posthog
+        _mock_client, mock_class = mock_posthog
 
         with patch("src.analytics.get_settings") as mock_settings:
             mock_settings.return_value.no_telemetry = False
@@ -47,6 +47,7 @@ class TestInitAnalytics:
 
         mock_class.assert_called_once()
         call_kwargs = mock_class.call_args[1]
+        assert call_kwargs["project_api_key"] is not None
         assert call_kwargs["disable_geoip"] is True
         assert analytics_mod._server_id == "test-server-id"
 

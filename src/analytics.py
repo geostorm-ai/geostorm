@@ -30,12 +30,18 @@ def init_analytics(server_id: str) -> None:
         logger.debug("posthog package not installed, analytics disabled")
         return
 
+    try:
+        client = Posthog(
+            project_api_key=_POSTHOG_API_KEY,
+            host=_POSTHOG_HOST,
+            disable_geoip=True,
+        )
+    except Exception:  # noqa: BLE001
+        logger.debug("Failed to create PostHog client, analytics disabled")
+        return
+
     _server_id = server_id
-    _posthog_client = Posthog(
-        api_key=_POSTHOG_API_KEY,
-        host=_POSTHOG_HOST,
-        disable_geoip=True,
-    )
+    _posthog_client = client
     logger.info("Analytics initialized")
 
 

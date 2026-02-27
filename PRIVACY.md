@@ -41,4 +41,4 @@ NO_TELEMETRY=true
 
 ## Third-party services
 
-Anonymous events are sent to [PostHog](https://posthog.com). Nothing else goes between your server and PostHog beyond the event name and the random UUID.
+Anonymous events are sent to [PostHog](https://posthog.com). No user data goes between your server and PostHog beyond the event name and the random UUID. The PostHog SDK also sends standard library metadata (`$lib`, `$lib_version`).
