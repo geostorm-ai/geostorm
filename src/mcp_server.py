@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import difflib
-from typing import Any
+from typing import TYPE_CHECKING
 
 from fastmcp import FastMCP
+from pydantic import BaseModel, Field
 
 from src.container import (
     alert_service,
@@ -22,7 +23,18 @@ from src.schemas import (
     TrajectoryResponse,
 )
 
+if TYPE_CHECKING:
+    import aiosqlite
+
 _FUZZY_MATCH_THRESHOLD = 0.6
+
+
+class MCPError(BaseModel):
+    """Typed error response returned by MCP tools."""
+
+    error: str
+    available: list[str] = Field(default_factory=list)
+
 
 mcp = FastMCP(
     "GeoStorm",
@@ -33,10 +45,10 @@ mcp = FastMCP(
 )
 
 
-async def _resolve_project(project: str) -> tuple[str, Any] | dict[str, Any]:
+async def _resolve_project(project: str) -> tuple[str, aiosqlite.Row] | MCPError:
     """Resolve a project ID or fuzzy name to (project_id, row).
 
-    Returns a (project_id, row) tuple on success, or an error dict on failure.
+    Returns a (project_id, row) tuple on success, or an MCPError on failure.
     """
     # 1. Exact ID match
     row = await project_repo.get_project(project)
@@ -52,15 +64,17 @@ async def _resolve_project(project: str) -> tuple[str, Any] | dict[str, Any]:
     for pid, name in names.items():
         if name.lower() == lower:
             matched_row = await project_repo.get_project(pid)
-            return (pid, matched_row)
+            if matched_row:
+                return (pid, matched_row)
 
     # Substring match
     for pid, name in names.items():
         if lower in name.lower():
             matched_row = await project_repo.get_project(pid)
-            return (pid, matched_row)
+            if matched_row:
+                return (pid, matched_row)
 
-    # difflib fuzzy match (threshold 0.6)
+    # difflib fuzzy match
     best_score = 0.0
     best_pid: str | None = None
     for pid, name in names.items():
@@ -71,9 +85,10 @@ async def _resolve_project(project: str) -> tuple[str, Any] | dict[str, Any]:
 
     if best_pid and best_score >= _FUZZY_MATCH_THRESHOLD:
         matched_row = await project_repo.get_project(best_pid)
-        return (best_pid, matched_row)
+        if matched_row:
+            return (best_pid, matched_row)
 
-    return {"error": f"Project '{project}' not found", "available": list(names.values())}
+    return MCPError(error=f"Project '{project}' not found", available=list(names.values()))
 
 
 @mcp.tool()
@@ -86,14 +101,14 @@ async def list_projects() -> list[ProjectResponse]:
 
 
 @mcp.tool()
-async def get_project_summary(project: str) -> ProjectSummary | dict[str, Any]:
+async def get_project_summary(project: str) -> ProjectSummary | MCPError:
     """Get a full summary for a project: detail, perception scores, breakdown, recent runs, and alerts.
 
     Args:
         project: Project ID or name (fuzzy matching supported).
     """
     resolved = await _resolve_project(project)
-    if isinstance(resolved, dict):
+    if isinstance(resolved, MCPError):
         return resolved
 
     project_id, row = resolved
@@ -116,7 +131,7 @@ async def get_project_summary(project: str) -> ProjectSummary | dict[str, Any]:
 
 
 @mcp.tool()
-async def get_run_detail(run_id: str) -> RunDetailResponse | dict[str, str]:
+async def get_run_detail(run_id: str) -> RunDetailResponse | MCPError:
     """Get details for a single monitoring run, including perception score and competitors detected.
 
     Args:
@@ -124,7 +139,7 @@ async def get_run_detail(run_id: str) -> RunDetailResponse | dict[str, str]:
     """
     result = await run_service.get_run_detail(run_id)
     if not result:
-        return {"error": f"Run '{run_id}' not found"}
+        return MCPError(error=f"Run '{run_id}' not found")
     return result
 
 
@@ -134,7 +149,7 @@ async def get_trajectory(
     start_date: str | None = None,
     end_date: str | None = None,
     period: str = "day",
-) -> TrajectoryResponse | dict[str, Any]:
+) -> TrajectoryResponse | MCPError:
     """Get historical trajectory data showing recommendation share, position, and competitor delta over time.
 
     Args:
@@ -144,7 +159,7 @@ async def get_trajectory(
         period: Aggregation period — 'day', 'week', or 'month' (default 'day').
     """
     resolved = await _resolve_project(project)
-    if isinstance(resolved, dict):
+    if isinstance(resolved, MCPError):
         return resolved
 
     project_id, _ = resolved
