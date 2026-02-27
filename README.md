@@ -34,9 +34,9 @@
 
 **Developers increasingly discover software through AI** -- GPT, Claude, Gemini, Perplexity, and others. When someone asks "what's the best library for X?", the AI's answer shapes adoption. But you have no idea what these models are saying about your project.
 
-**GeoStorm fixes this.** It monitors multiple AI models on a schedule, tracks how they perceive and recommend your software, and alerts you when things change -- a new competitor appears, your ranking drops, or a model stops mentioning you entirely.
+GeoStorm monitors multiple AI models on a schedule, tracks how they perceive and recommend your software, and alerts you when things change -- a new competitor appears, your ranking drops, or a model stops mentioning you.
 
-One container. One command. Full visibility into your AI presence.
+One container, one command.
 
 </td>
 </tr>
@@ -52,7 +52,7 @@ docker run -d -p 8080:8080 -v geostorm-data:/app/data --name geostorm ghcr.io/ge
 
 Open [http://localhost:8080](http://localhost:8080) -- the demo loads immediately.
 
-**That's it.** No git clone, no build step, no API keys, no database setup. A demo project with 90 days of synthetic monitoring data is ready to explore.
+No git clone, no build step, no API keys. A demo project with 90 days of synthetic monitoring data is ready to explore.
 
 <details>
 <summary><h3>Requirements</h3></summary>
@@ -74,7 +74,7 @@ The demo project ships with realistic sample data so you can explore every featu
 | **Alerts Feed** | Critical and warning signals with full context on what changed |
 | **Perception Chart** | Track your recommendation share and positioning across models over time |
 
-The demo data covers multiple AI models, competitor tracking, and trend analysis so you can see exactly how GeoStorm works before connecting your own projects.
+The demo data covers multiple AI models, competitor tracking, and trend analysis.
 
 ---
 
@@ -125,7 +125,7 @@ GeoStorm runs as a single Docker container with no external dependencies:
 | **Database** | SQLite, stored in a mounted volume (`./data/`) |
 | **Scheduling** | APScheduler runs inside the FastAPI process -- no separate worker, no Redis, no message queue |
 
-The entire stack is self-contained. One container, one port, one volume mount.
+One container, one port, one volume mount.
 
 ---
 
@@ -164,7 +164,22 @@ All notification channels are optional. GeoStorm always displays alerts in the U
 
 ### Telemetry
 
-GeoStorm is 100% free and open source. The only telemetry is an anonymous ping when the server starts and when a monitoring run completes — no names, no IPs, no project data, nothing identifiable. This helps us know the project is being used, which keeps it maintained. You can [turn it off anytime](#how-do-i-disable-telemetry).
+GeoStorm is free and open source. The only telemetry is an anonymous ping when the server starts and when a monitoring run completes — no names, no IPs, no project data. This helps us know the project is being used. You can [turn it off anytime](#how-do-i-disable-telemetry).
+
+---
+
+## Roadmap
+
+Planned features, roughly in priority order:
+
+- **Authentication** -- user accounts and login so GeoStorm can be hosted on a remote server or shared instance without exposing everything to the network
+- **Direct provider support** -- use OpenAI, Anthropic, and Google API keys directly instead of going through OpenRouter
+- **Expanded model coverage** -- automatic support for the latest models as they launch (Perplexity, Grok, etc.) so you're always monitoring against whatever people are actually using
+- **Data export** -- CSV and PDF export of perception data, alerts, and run history
+- **Raspberry Pi hosting guide** -- instructions for running GeoStorm on a Pi for always-on monitoring at home
+- **Hosted version** -- a managed cloud option if there's enough demand for it
+
+Have a feature request? [Open an issue](https://github.com/geostorm-ai/geostorm/issues/new).
 
 ---
 
@@ -208,7 +223,7 @@ GeoStorm uses [Logfire](https://logfire.pydantic.dev/) for structured logging. C
 <summary><strong>Why would I want this?</strong></summary>
 <br>
 
-More and more developers discover tools by asking AI -- "what's the best library for X?" If an AI model stops recommending your project, or starts favoring a competitor, you'd never know unless you manually checked every model. GeoStorm automates that, runs on a schedule, and alerts you when something changes.
+More developers discover tools by asking AI -- "what's the best library for X?" If a model stops recommending your project or starts favoring a competitor, you'd never know unless you manually checked. GeoStorm automates that and alerts you when something changes.
 
 </details>
 
@@ -232,7 +247,7 @@ Not yet. GeoStorm is self-hosted only for now. The Docker container is designed 
 <summary><strong>Why SQLite?</strong></summary>
 <br>
 
-GeoStorm is a single-user monitoring tool, not a multi-tenant SaaS. SQLite keeps things simple -- no database server to run, no connection strings to configure, no separate container. Your data lives in a single file on a mounted volume. For the query patterns GeoStorm uses, SQLite is more than fast enough.
+GeoStorm is a single-user monitoring tool, not a multi-tenant SaaS. SQLite keeps things simple -- no database server to run, no connection strings to configure. Your data lives in a single file on a mounted volume. For GeoStorm's query patterns, SQLite is more than fast enough.
 
 </details>
 
@@ -250,7 +265,7 @@ GeoStorm itself is free. The only cost is the AI API usage through OpenRouter. A
 
 You could wire up an OpenClaw agent with a cron job to query AI models daily and store the results somewhere. But then you're building GeoStorm from scratch -- prompt engineering for consistent structured responses, parsing and normalizing across models, calculating recommendation share and position rankings, detecting changes over time, generating alerts, and building a UI to make sense of it all.
 
-GeoStorm does all of that out of the box. It's also cheaper and more predictable -- GeoStorm runs deterministic code on a fixed schedule, so you know exactly what queries run and what they cost. An AI agent deciding what to do each run can drift, retry unpredictably, or burn tokens on reasoning overhead. One container, no agent framework required.
+GeoStorm does all of that out of the box. It's also cheaper and more predictable -- deterministic code on a fixed schedule, so you know what queries run and what they cost. An AI agent deciding what to do each run can drift or burn tokens on reasoning overhead. No agent framework required.
 
 </details>
 
@@ -274,7 +289,7 @@ NO_TELEMETRY=true
 
 <div align="center">
 
-### Ready to see what AI thinks about your software?
+### Get started
 
 ```bash
 docker run -d -p 8080:8080 -v geostorm-data:/app/data --name geostorm ghcr.io/geostorm-ai/geostorm
