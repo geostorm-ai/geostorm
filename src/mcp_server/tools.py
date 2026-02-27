@@ -1,19 +1,17 @@
-"""MCP server exposing GeoStorm perception data to LLM clients."""
+"""MCP tool definitions for GeoStorm."""
 
 from __future__ import annotations
-
-import difflib
-from typing import TYPE_CHECKING
 
 from fastmcp import FastMCP
 
 from src.container import (
     alert_service,
-    project_repo,
     project_service,
     run_service,
     term_repo,
 )
+from src.mcp_server.exceptions import RunNotFoundError
+from src.mcp_server.resolve import resolve_project
 from src.schemas import (
     AlertResponse,
     ProjectResponse,
@@ -22,27 +20,6 @@ from src.schemas import (
     TrajectoryResponse,
 )
 
-if TYPE_CHECKING:
-    import aiosqlite
-
-_FUZZY_MATCH_THRESHOLD = 0.6
-
-
-class ProjectNotFoundError(Exception):
-    """Raised when a project cannot be resolved by ID or name."""
-
-    def __init__(self, project: str, available: list[str]) -> None:
-        names = ", ".join(available) or "none"
-        super().__init__(f"Project '{project}' not found. Available projects: {names}")
-
-
-class RunNotFoundError(Exception):
-    """Raised when a run ID does not exist."""
-
-    def __init__(self, run_id: str) -> None:
-        super().__init__(f"Run '{run_id}' not found")
-
-
 mcp = FastMCP(
     "GeoStorm",
     instructions=(
@@ -50,52 +27,6 @@ mcp = FastMCP(
         "Use these tools to explore projects, perception scores, runs, alerts, and trends."
     ),
 )
-
-
-async def _resolve_project(project: str) -> tuple[str, aiosqlite.Row]:
-    """Resolve a project ID or fuzzy name to (project_id, row).
-
-    Raises ProjectNotFoundError if no match is found.
-    """
-    # 1. Exact ID match
-    row = await project_repo.get_project(project)
-    if row:
-        return (project, row)
-
-    # 2. Fuzzy name matching against all projects
-    all_projects = await project_service.list_projects()
-    names: dict[str, str] = {p.id: p.name for p in all_projects}
-
-    # Case-insensitive exact name match
-    lower = project.lower()
-    for pid, name in names.items():
-        if name.lower() == lower:
-            matched_row = await project_repo.get_project(pid)
-            if matched_row:
-                return (pid, matched_row)
-
-    # Substring match
-    for pid, name in names.items():
-        if lower in name.lower():
-            matched_row = await project_repo.get_project(pid)
-            if matched_row:
-                return (pid, matched_row)
-
-    # difflib fuzzy match
-    best_score = 0.0
-    best_pid: str | None = None
-    for pid, name in names.items():
-        score = difflib.SequenceMatcher(None, lower, name.lower()).ratio()
-        if score > best_score:
-            best_score = score
-            best_pid = pid
-
-    if best_pid and best_score >= _FUZZY_MATCH_THRESHOLD:
-        matched_row = await project_repo.get_project(best_pid)
-        if matched_row:
-            return (best_pid, matched_row)
-
-    raise ProjectNotFoundError(project, list(names.values()))
 
 
 @mcp.tool()
@@ -114,7 +45,7 @@ async def get_project_summary(project: str) -> ProjectSummary:
     Args:
         project: Project ID or name (fuzzy matching supported).
     """
-    project_id, row = await _resolve_project(project)
+    project_id, row = await resolve_project(project)
 
     detail = await project_service.get_project_detail(project_id, row)
     perception = await run_service.get_perception(project_id, None, None)
@@ -162,5 +93,5 @@ async def get_trajectory(
         end_date: Optional end date filter (YYYY-MM-DD).
         period: Aggregation period — 'day', 'week', or 'month' (default 'day').
     """
-    project_id, _ = await _resolve_project(project)
+    project_id, _ = await resolve_project(project)
     return await run_service.get_trajectory(project_id, start_date, end_date, period)
