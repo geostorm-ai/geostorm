@@ -112,6 +112,11 @@ app.include_router(runs_router)
 app.include_router(setup_router)
 app.include_router(providers_router)
 
+from src.mcp_server import mcp as mcp_server
+
+_mcp_app = mcp_server.http_app(path="/")
+app.mount("/mcp", _mcp_app)
+
 
 class VersionResponse(BaseModel):
     """Version info response."""
