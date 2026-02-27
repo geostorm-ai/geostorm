@@ -144,13 +144,9 @@ claude mcp add --transport http --scope project geostorm http://localhost:8080/m
 | Tool | Description |
 |------|-------------|
 | `list_projects` | Discover project IDs, names, and latest scores |
-| `get_project_detail` | Brand info, competitors, search terms, and schedule |
-| `get_perception_scores` | Perception score time-series with date filtering |
-| `get_perception_breakdown` | Per-term and per-provider breakdown for the latest period |
-| `get_recent_runs` | Recent monitoring runs (paginated) |
+| `get_project_summary` | Full project summary: detail, perception, breakdown, recent runs, and alerts (accepts ID or fuzzy name) |
 | `get_run_detail` | Single run with perception score and competitors detected |
-| `get_alerts` | Alerts and anomalies with severity/acknowledgement filters |
-| `get_trajectory` | Historical trend data (day/week/month aggregation) |
+| `get_trajectory` | Historical trend data with day/week/month aggregation (accepts ID or fuzzy name) |
 
 ---
 

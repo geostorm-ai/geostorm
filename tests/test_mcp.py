@@ -109,7 +109,6 @@ async def test_list_projects(tmp_path):
         result = await mcp.call_tool("list_projects", {})
 
     data = result.structured_content
-    # list tools wrap in {"result": [...]}
     projects = data.get("result", data)
     assert len(projects) >= 1
     proj = projects[0]
@@ -117,56 +116,50 @@ async def test_list_projects(tmp_path):
     assert proj["name"] == "Test Project"
 
 
-async def test_get_project_detail(tmp_path):
+def _unwrap(data: dict) -> dict:
+    """Unwrap FastMCP's {"result": ...} envelope if present."""
+    return data.get("result", data) if isinstance(data.get("result"), dict) else data
+
+
+async def test_get_project_summary_by_id(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
     with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
-        result = await mcp.call_tool("get_project_detail", {"project_id": "proj-1"})
+        result = await mcp.call_tool("get_project_summary", {"project": "proj-1"})
 
-    data = result.structured_content
-    assert data["id"] == "proj-1"
-    assert data["brand"] is not None
-    assert data["brand"]["name"] == "TestBrand"
-    assert len(data["competitors"]) == 1
-    assert len(data["terms"]) == 1
-    assert data["schedule"] is not None
+    data = _unwrap(result.structured_content)
+    assert data["project"]["id"] == "proj-1"
+    assert data["project"]["brand"]["name"] == "TestBrand"
+    assert data["perception"]["project_id"] == "proj-1"
+    assert "by_term" in data["breakdown"]
+    assert isinstance(data["recent_runs"], list)
+    assert isinstance(data["alerts"], list)
 
 
-async def test_get_project_detail_not_found(tmp_path):
+async def test_get_project_summary_by_name(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
 
     with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
-        result = await mcp.call_tool("get_project_detail", {"project_id": "nonexistent"})
+        result = await mcp.call_tool("get_project_summary", {"project": "test project"})
 
-    data = result.structured_content
+    data = _unwrap(result.structured_content)
+    assert data["project"]["id"] == "proj-1"
+    assert data["project"]["name"] == "Test Project"
+
+
+async def test_get_project_summary_not_found(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    await _init_db(db_path)
+
+    with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
+        result = await mcp.call_tool("get_project_summary", {"project": "nonexistent-xyz"})
+
+    data = _unwrap(result.structured_content)
     assert "error" in data
-
-
-async def test_get_perception_scores(tmp_path):
-    db_path = str(tmp_path / "test.db")
-    await _init_db(db_path)
-
-    with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
-        result = await mcp.call_tool("get_perception_scores", {"project_id": "proj-1"})
-
-    data = result.structured_content
-    assert data["project_id"] == "proj-1"
-    assert "data" in data
-
-
-async def test_get_recent_runs(tmp_path):
-    db_path = str(tmp_path / "test.db")
-    await _init_db(db_path)
-
-    with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
-        result = await mcp.call_tool("get_recent_runs", {"project_id": "proj-1"})
-
-    data = result.structured_content
-    assert "items" in data
-    assert data["total"] >= 1
-    assert data["items"][0]["id"] == "run-1"
+    assert "available" in data
+    assert "Test Project" in data["available"]
 
 
 async def test_get_run_detail_not_found(tmp_path):
@@ -176,21 +169,8 @@ async def test_get_run_detail_not_found(tmp_path):
     with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
         result = await mcp.call_tool("get_run_detail", {"run_id": "nonexistent"})
 
-    data = result.structured_content
+    data = _unwrap(result.structured_content)
     assert "error" in data
-
-
-async def test_get_alerts(tmp_path):
-    db_path = str(tmp_path / "test.db")
-    await _init_db(db_path)
-
-    with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
-        result = await mcp.call_tool("get_alerts", {"project_id": "proj-1"})
-
-    data = result.structured_content
-    alerts = data.get("result", data)
-    assert len(alerts) >= 1
-    assert alerts[0]["id"] == "alert-1"
 
 
 async def test_get_trajectory(tmp_path):
@@ -198,8 +178,8 @@ async def test_get_trajectory(tmp_path):
     await _init_db(db_path)
 
     with patch("src.database.get_db_connection", side_effect=_fake_db_conn(db_path)):
-        result = await mcp.call_tool("get_trajectory", {"project_id": "proj-1"})
+        result = await mcp.call_tool("get_trajectory", {"project": "proj-1"})
 
-    data = result.structured_content
+    data = _unwrap(result.structured_content)
     assert data["project_id"] == "proj-1"
     assert "data" in data
