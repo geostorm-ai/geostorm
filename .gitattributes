@@ -1,0 +1,41 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Python
+*.py text diff=python
+*.pyi text diff=python
+
+# Web
+*.js text
+*.ts text
+*.tsx text
+*.jsx text
+*.css text
+*.html text
+*.astro text
+
+# Config
+*.json text
+*.yml text
+*.yaml text
+*.toml text
+*.md text
+
+# Docker
+Dockerfile text
+*.dockerignore text
+
+# Shell
+*.sh text eol=lf
+
+# Lock files — treat as binary for cleaner diffs
+uv.lock binary
+pnpm-lock.yaml binary
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
