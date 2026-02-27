@@ -421,6 +421,16 @@ class TrajectoryResponse(BaseModel):
     data: list[TrajectoryDataPoint] = Field(default_factory=list)
 
 
+class ProjectSummary(BaseModel):
+    """Aggregated project summary for MCP: detail + perception + breakdown + runs + alerts."""
+
+    project: ProjectDetailResponse
+    perception: PerceptionResponse
+    breakdown: PerceptionBreakdownResponse
+    recent_runs: list[RunResponse]
+    alerts: list[AlertResponse]
+
+
 # ============================================================================
 # Setup
 # ============================================================================

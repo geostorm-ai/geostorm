@@ -17,6 +17,7 @@ dependencies = [
     "genai-prices",
     "pydantic-settings>=2.13.1",
     "logfire[fastapi,httpx]",
+    "fastmcp>=2.0",
 ]
 
 [project.optional-dependencies]
