@@ -44,6 +44,10 @@ One container, one command.
 
 ---
 
+Built with spec-driven development via [Shotgun](https://shotgun.sh/) ([GitHub](https://github.com/shotgun-sh/shotgun))
+
+---
+
 ## Quick Start
 
 ```bash
@@ -303,4 +307,4 @@ docker run -d -p 8080:8080 -v geostorm-data:/app/data --name geostorm ghcr.io/ge
 
 ---
 
-**License:** MIT | **Python:** 3.11+ | **Built with:** [Shotgun](https://shotgun.sh/) | **Homepage:** [github.com/geostorm-ai/geostorm](https://github.com/geostorm-ai/geostorm)
+**License:** MIT | **Python:** 3.11+ | **Homepage:** [github.com/geostorm-ai/geostorm](https://github.com/geostorm-ai/geostorm)
