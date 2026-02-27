@@ -34,6 +34,7 @@ logging.basicConfig(handlers=[logfire.LogfireLoggingHandler()], level=logging.IN
 
 from src.config import get_settings
 from src.database import check_database_health, initialize_database
+from src.mcp_server import mcp as mcp_server
 from src.retention import cleanup_old_responses
 from src.routes.alerts import router as alerts_router
 from src.routes.projects import router as projects_router
@@ -47,6 +48,7 @@ from src.scheduler import scheduling_loop
 logger = logging.getLogger(__name__)
 
 _scheduler: AsyncScheduler | None = None
+_mcp_app = mcp_server.http_app(path="/")
 
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
@@ -82,7 +84,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await _scheduler.start_in_background()
         logfire.info('GeoStorm started', port=8080)
 
-        yield
+        async with _mcp_app.lifespan(_app):
+            yield
 
     _scheduler = None
     logger.info("GeoStorm shutting down")
@@ -112,9 +115,6 @@ app.include_router(runs_router)
 app.include_router(setup_router)
 app.include_router(providers_router)
 
-from src.mcp_server import mcp as mcp_server
-
-_mcp_app = mcp_server.http_app(path="/")
 app.mount("/mcp", _mcp_app)
 
 

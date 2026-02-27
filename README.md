@@ -90,6 +90,14 @@ To start monitoring your own software:
 
 **3. Create a project** in the UI and GeoStorm starts monitoring on a schedule.
 
+**4. (Optional) Connect Claude Code** so you can query your perception data conversationally:
+
+```bash
+claude mcp add --transport http geostorm http://localhost:8080/mcp/
+```
+
+Then ask Claude things like "What projects am I monitoring?", "Show me perception scores for Shotgun", or "Are there any alerts I should know about?"
+
 ---
 
 ## Alert Types
@@ -118,6 +126,31 @@ GeoStorm runs as a single Docker container with no external dependencies:
 | **Scheduling** | APScheduler runs inside the FastAPI process -- no separate worker, no Redis, no message queue |
 
 The entire stack is self-contained. One container, one port, one volume mount.
+
+---
+
+## MCP Integration (Claude Code)
+
+GeoStorm exposes an [MCP](https://modelcontextprotocol.io/) endpoint at `/mcp/` so AI coding assistants like Claude Code can query your perception data conversationally. See [Next Steps](#next-steps) for the one-liner setup command.
+
+To scope the MCP to a specific project directory instead of globally:
+
+```bash
+claude mcp add --transport http --scope project geostorm http://localhost:8080/mcp/
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_projects` | Discover project IDs, names, and latest scores |
+| `get_project_detail` | Brand info, competitors, search terms, and schedule |
+| `get_perception_scores` | Perception score time-series with date filtering |
+| `get_perception_breakdown` | Per-term and per-provider breakdown for the latest period |
+| `get_recent_runs` | Recent monitoring runs (paginated) |
+| `get_run_detail` | Single run with perception score and competitors detected |
+| `get_alerts` | Alerts and anomalies with severity/acknowledgement filters |
+| `get_trajectory` | Historical trend data (day/week/month aggregation) |
 
 ---
 
