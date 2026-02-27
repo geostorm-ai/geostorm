@@ -1,5 +1,11 @@
 # Acknowledgments
 
+## Built With
+
+GeoStorm was built with [Shotgun](https://shotgun.sh/) ([GitHub](https://github.com/shotgun-sh/shotgun)) — an AI-powered development tool for shipping software fast.
+
+## Dependencies
+
 GeoStorm is built on top of excellent open-source projects:
 
 ## Backend
