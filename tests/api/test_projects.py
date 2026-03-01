@@ -53,6 +53,20 @@ async def _seed_brand(db_path, project_id="proj-1"):
         await db.close()
 
 
+async def _seed_term(db_path, project_id="proj-1"):
+    db = await aiosqlite.connect(db_path)
+    now = "2024-01-01T00:00:00+00:00"
+    try:
+        await db.execute(
+            "INSERT INTO project_terms (id, project_id, name, is_active, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            ("term-1", project_id, "Test Project", 1, now, now),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+
 async def _seed_schedule(db_path, project_id="proj-1"):
     db = await aiosqlite.connect(db_path)
     now = "2024-01-01T00:00:00+00:00"
@@ -239,6 +253,7 @@ async def test_patch_demo_project_403(tmp_path):
 async def test_trigger_monitor(tmp_path):
     db_path = str(tmp_path / "test.db")
     await _init_db(db_path)
+    await _seed_term(db_path)
 
     fake = _fake_db_conn(db_path)
     mock_monitor = AsyncMock()
@@ -251,6 +266,23 @@ async def test_trigger_monitor(tmp_path):
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/projects/proj-1/monitor")
             assert resp.status_code == 202
+
+
+@pytest.mark.asyncio
+async def test_trigger_monitor_no_terms_returns_400(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    await _init_db(db_path)
+
+    fake = _fake_db_conn(db_path)
+    with patch("src.database.get_db_connection", side_effect=fake), \
+         patch("src.llm.factory.get_available_providers", AsyncMock(return_value=["openrouter"])):
+        test_app = FastAPI()
+        test_app.include_router(router)
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post("/api/projects/proj-1/monitor")
+            assert resp.status_code == 400
+            assert "No monitoring terms" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio

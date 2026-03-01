@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 import logfire
 
 from src.analytics import capture_run_completed
-from src.container import provider_repo, response_repo, run_repo, schedule_repo, term_repo
+from src.container import alert_repo, provider_repo, response_repo, run_repo, schedule_repo, term_repo
 from src.llm.base import LLMError, PromptRequest, ProviderType, with_web_search
 from src.llm.client import send_prompt
 from src.llm.prompt_service import generate_prompt, get_system_prompt
@@ -93,6 +93,24 @@ async def execute_monitoring_run(
 
         if not terms or not providers:
             logger.warning("No active terms or providers for project %s, skipping run", project_id)
+            missing = []
+            if not terms:
+                missing.append("monitoring terms")
+            if not providers:
+                missing.append("LLM providers")
+            missing_str = " and ".join(missing)
+            await alert_repo.store_alerts([(
+                project_id,
+                "configuration_error",
+                "critical",
+                f"Monitoring run skipped — no {missing_str} configured",
+                f"A {trigger_type} monitoring run was skipped because this project has no {missing_str}. "
+                "To fix this, open your project's detail page, scroll to the Monitoring Terms section, "
+                "and add at least one term describing what users would ask an AI when looking for a tool "
+                "like yours (e.g. \"best Python web framework\" or \"top API testing tools\"). "
+                "Runs will continue to be skipped until this is resolved.",
+                "{}",
+            )])
             return run_id
 
         total_queries = len(terms) * len(providers)

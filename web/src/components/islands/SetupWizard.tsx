@@ -102,6 +102,9 @@ export function SetupWizard() {
 	const [showApiKeyInput, setShowApiKeyInput] = useState(false)
 	const [inlineApiKey, setInlineApiKey] = useState("")
 
+	// Validation state
+	const [termsError, setTermsError] = useState<string | null>(null)
+
 	// Submission state
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [submitError, setSubmitError] = useState<string | null>(null)
@@ -231,8 +234,17 @@ export function SetupWizard() {
 	}
 
 	async function handleSubmit() {
-		setIsSubmitting(true)
 		setSubmitError(null)
+		setTermsError(null)
+
+		if (terms.length === 0) {
+			setTermsError(
+				"At least one monitoring term is required. Add a term describing what users would ask an AI when looking for a tool like yours (e.g. \"best Python web framework\").",
+			)
+			return
+		}
+
+		setIsSubmitting(true)
 
 		const effectiveProjectName = projectName.trim() || primaryInput.trim()
 		const effectiveBrandName = brandName.trim() || primaryInput.trim()
@@ -404,7 +416,7 @@ export function SetupWizard() {
 						{/* Optional fields */}
 						<div className="space-y-4">
 							<p className="text-sm text-muted-foreground">
-								Optional — these fields will use defaults if left empty.
+								Fields marked with * are required. Others will use defaults if left empty.
 							</p>
 
 							<div className="grid gap-4 sm:grid-cols-2">
@@ -496,22 +508,25 @@ export function SetupWizard() {
 							</div>
 
 							<div className="space-y-3">
-								<Label>Monitoring Terms</Label>
+								<Label>Monitoring Terms *</Label>
 								<p className="text-xs text-muted-foreground">
-									What would someone ask GPT or Claude when looking for a tool like yours?
+									What would someone ask GPT or Claude when looking for a tool like yours? At least one term is required for monitoring to work.
 								</p>
 								<div className="flex gap-2">
 									<Input
 										placeholder='e.g. "best tool for [your category]"'
 										value={termInput}
-										onChange={(e) => setTermInput(e.target.value)}
+										onChange={(e) => {
+										setTermInput(e.target.value)
+										setTermsError(null)
+									}}
 										onKeyDown={(e) => {
 											if (e.key === "Enter") {
 												e.preventDefault()
 												addTerm()
 											}
 										}}
-										className="flex-1"
+										className={`flex-1 ${termsError ? "border-destructive" : ""}`}
 									/>
 									<Button
 										type="button"
@@ -522,6 +537,9 @@ export function SetupWizard() {
 										Add
 									</Button>
 								</div>
+								{termsError && (
+									<p className="text-sm text-destructive">{termsError}</p>
+								)}
 								{terms.length > 0 && (
 									<div className="space-y-2">
 										{terms.map((name) => (

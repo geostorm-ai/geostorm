@@ -85,6 +85,17 @@ async def trigger_monitoring(project_id: str) -> dict[str, str]:
             status_code=400,
             detail="No API key configured. Add your OpenRouter API key in Settings to run monitoring.",
         )
+    if result.get("error") == "no_terms":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No monitoring terms configured. Monitoring cannot run without at least one term. "
+                "Go to your project page, scroll to the Monitoring Terms section, and add terms "
+                "describing what users would ask an AI when looking for a tool like yours "
+                '(e.g. "best Python web framework" or "top API testing tools"). '
+                "Each term is queried across all configured LLM providers during a monitoring run."
+            ),
+        )
     return result
 
 

@@ -2,6 +2,7 @@ import type { AlertType } from "@/schemas/alert"
 
 export const ALERT_TYPE_LABELS: Record<AlertType, string> = {
 	competitor_emergence: "Competitor Emergence",
+	configuration_error: "Setup Required",
 	disappearance: "Disappearance",
 	recommendation_share_drop: "Share Drop",
 	position_degradation: "Position Drop",

@@ -276,5 +276,15 @@ class TestExecuteMonitoringRun:
             count = await cursor.fetchone()
             assert count is not None
             assert count[0] == 0
+
+            # A configuration_error alert should have been created
+            cursor = await db.execute(
+                "SELECT alert_type, severity, title FROM alerts WHERE project_id = ?",
+                ("proj-empty",),
+            )
+            alert = await cursor.fetchone()
+            assert alert is not None
+            assert alert[0] == "configuration_error"
+            assert alert[1] == "critical"
         finally:
             await db.close()

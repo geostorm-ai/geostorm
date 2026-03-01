@@ -78,6 +78,13 @@ class ProjectService:
                 uuid.uuid4().hex, project_id, prov_name, model_name, now,
             )
 
+        # Seed a default monitoring term from the brand/project name so
+        # the first "Run Now" click actually executes queries.
+        default_term_name = brand_name or name
+        await self._term_repo.create_term(
+            uuid.uuid4().hex, project_id, default_term_name, None, now,
+        )
+
         return ProjectCreatedResponse(
             id=project_id,
             name=name,
@@ -212,13 +219,17 @@ _background_tasks: set[asyncio.Task[Any]] = set()
 
 async def clear_and_trigger_monitoring(project_id: str) -> dict[str, str]:
     """Clear run data and launch a background monitoring task."""
-    from src.container import run_repo  # noqa: PLC0415
+    from src.container import run_repo, term_repo  # noqa: PLC0415
     from src.llm.factory import get_available_providers  # noqa: PLC0415
     from src.scheduler import execute_monitoring_run  # noqa: PLC0415
 
     available = await get_available_providers()
     if not available:
         return {"error": "no_api_key"}
+
+    terms = await term_repo.list_active_term_ids_and_names(project_id)
+    if not terms:
+        return {"error": "no_terms"}
 
     for t in list(_background_tasks):
         if not t.done():

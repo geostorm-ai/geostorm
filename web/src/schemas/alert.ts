@@ -2,6 +2,7 @@ import { z } from "zod"
 
 export const AlertType = z.enum([
 	"competitor_emergence",
+	"configuration_error",
 	"disappearance",
 	"recommendation_share_drop",
 	"position_degradation",
