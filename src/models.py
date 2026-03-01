@@ -32,6 +32,7 @@ class AlertType(StrEnum):
     """Types of alerts the system can generate."""
 
     COMPETITOR_EMERGENCE = "competitor_emergence"
+    CONFIGURATION_ERROR = "configuration_error"
     DISAPPEARANCE = "disappearance"
     RECOMMENDATION_SHARE_DROP = "recommendation_share_drop"
     POSITION_DEGRADATION = "position_degradation"
