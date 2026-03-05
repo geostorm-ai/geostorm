@@ -45,9 +45,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  secret-scanning:
+    name: Scan for secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pull trufflehog Docker image
+        run: docker pull ghcr.io/trufflesecurity/trufflehog:latest
+
+      - name: Run trufflehog scan
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/trufflesecurity/trufflehog:latest git file:///repo --fail --no-update
+
   all-checks-passed:
     if: always()
-    needs: [python, frontend, docker]
+    needs: [python, frontend, docker, secret-scanning]
     runs-on: ubuntu-latest
     steps:
       - run: |
