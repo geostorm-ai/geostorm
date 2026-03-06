@@ -23,15 +23,15 @@ from src.schemas import (  # noqa: TC001
 )
 from src.services.project_service import clear_and_trigger_monitoring
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", tags=["Projects"])
 
 
-@router.get("/projects")
+@router.get("/projects", operation_id="listProjects")
 async def list_projects() -> list[ProjectResponse]:
     return await project_service.list_projects()
 
 
-@router.post("/projects", status_code=201)
+@router.post("/projects", status_code=201, operation_id="createProject")
 async def create_project(req: CreateProjectRequest) -> ProjectCreatedResponse:
     return await project_service.create_project(
         name=req.name,
@@ -43,13 +43,13 @@ async def create_project(req: CreateProjectRequest) -> ProjectCreatedResponse:
     )
 
 
-@router.get("/projects/{project_id}")
+@router.get("/projects/{project_id}", operation_id="getProject")
 async def get_project(project_id: str) -> ProjectDetailResponse:
     project = await get_project_or_404(project_id)
     return await project_service.get_project_detail(project_id, project)
 
 
-@router.patch("/projects/{project_id}")
+@router.patch("/projects/{project_id}", operation_id="updateProject")
 async def update_project(project_id: str, req: UpdateProjectRequest) -> ProjectResponse:
     await get_writable_project_or_403(project_id)
 
@@ -69,14 +69,14 @@ async def update_project(project_id: str, req: UpdateProjectRequest) -> ProjectR
     return result
 
 
-@router.delete("/projects/{project_id}")
+@router.delete("/projects/{project_id}", operation_id="deleteProject")
 async def delete_project(project_id: str) -> Response:
     await get_writable_project_or_403(project_id)
     await project_service.soft_delete_project(project_id)
     return Response(status_code=204)
 
 
-@router.post("/projects/{project_id}/monitor", status_code=202)
+@router.post("/projects/{project_id}/monitor", status_code=202, operation_id="triggerMonitoring")
 async def trigger_monitoring(project_id: str) -> dict[str, str]:
     await get_writable_project_or_403(project_id)
     result = await clear_and_trigger_monitoring(project_id)
@@ -99,7 +99,7 @@ async def trigger_monitoring(project_id: str) -> dict[str, str]:
     return result
 
 
-@router.get("/projects/{project_id}/brand")
+@router.get("/projects/{project_id}/brand", operation_id="getProjectBrand")
 async def get_brand(project_id: str) -> BrandResponse:
     await get_project_or_404(project_id)
     brand = await project_service.get_brand(project_id)
@@ -108,7 +108,7 @@ async def get_brand(project_id: str) -> BrandResponse:
     return brand
 
 
-@router.put("/projects/{project_id}/brand")
+@router.put("/projects/{project_id}/brand", operation_id="updateProjectBrand")
 async def update_brand(project_id: str, req: UpdateBrandRequest) -> BrandResponse:
     await get_writable_project_or_403(project_id)
 
@@ -132,13 +132,13 @@ async def update_brand(project_id: str, req: UpdateBrandRequest) -> BrandRespons
     return brand
 
 
-@router.get("/projects/{project_id}/competitors")
+@router.get("/projects/{project_id}/competitors", operation_id="listProjectCompetitors")
 async def list_competitors(project_id: str) -> list[CompetitorResponse]:
     await get_project_or_404(project_id)
     return await project_service.list_competitors(project_id)
 
 
-@router.post("/projects/{project_id}/competitors", status_code=201)
+@router.post("/projects/{project_id}/competitors", status_code=201, operation_id="createProjectCompetitor")
 async def create_competitor(project_id: str, req: CreateCompetitorRequest) -> CompetitorResponse:
     await get_writable_project_or_403(project_id)
     return await project_service.create_competitor(
@@ -146,7 +146,7 @@ async def create_competitor(project_id: str, req: CreateCompetitorRequest) -> Co
     )
 
 
-@router.delete("/projects/{project_id}/competitors/{competitor_id}")
+@router.delete("/projects/{project_id}/competitors/{competitor_id}", operation_id="deleteProjectCompetitor")
 async def delete_competitor(project_id: str, competitor_id: str) -> Response:
     await get_writable_project_or_403(project_id)
     rowcount = await project_service.delete_competitor(competitor_id, project_id)

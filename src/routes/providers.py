@@ -16,10 +16,10 @@ from src.schemas import (
     UpdateProviderRequest,
 )
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", tags=["Providers"])
 
 
-@router.get("/projects/{project_id}/providers")
+@router.get("/projects/{project_id}/providers", operation_id="listProviders")
 async def list_providers(project_id: str) -> list[LLMProviderResponse]:
     await get_project_or_404(project_id)
     rows = await provider_service.list_providers(project_id)
@@ -37,7 +37,7 @@ async def list_providers(project_id: str) -> list[LLMProviderResponse]:
     ]
 
 
-@router.post("/projects/{project_id}/providers", status_code=201)
+@router.post("/projects/{project_id}/providers", status_code=201, operation_id="createProvider")
 async def create_provider(project_id: str, body: CreateProviderRequest) -> LLMProviderResponse:
     await get_writable_project_or_403(project_id)
     provider_id = uuid.uuid4().hex
@@ -58,7 +58,7 @@ async def create_provider(project_id: str, body: CreateProviderRequest) -> LLMPr
     )
 
 
-@router.patch("/projects/{project_id}/providers/{provider_id}")
+@router.patch("/projects/{project_id}/providers/{provider_id}", operation_id="updateProvider")
 async def update_provider(
     project_id: str, provider_id: str, body: UpdateProviderRequest,
 ) -> LLMProviderResponse:
@@ -90,7 +90,7 @@ async def update_provider(
     )
 
 
-@router.delete("/projects/{project_id}/providers/{provider_id}")
+@router.delete("/projects/{project_id}/providers/{provider_id}", operation_id="deleteProvider")
 async def delete_provider(project_id: str, provider_id: str) -> Response:
     await get_writable_project_or_403(project_id)
     rowcount = await provider_service.delete_provider(provider_id, project_id)

@@ -16,10 +16,10 @@ from src.schemas import (
     UpdateAlertConfigRequest,
 )
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", tags=["Alerts"])
 
 
-@router.get("/alerts")
+@router.get("/alerts", operation_id="listAlerts")
 async def get_alerts(
     project_id: str = Query(...),
     limit: int = Query(default=50),
@@ -68,7 +68,7 @@ async def get_alerts(
     )
 
 
-@router.post("/alerts/{alert_id}/acknowledge")
+@router.post("/alerts/{alert_id}/acknowledge", operation_id="acknowledgeAlert")
 async def post_acknowledge_alert(alert_id: str) -> dict[str, Any]:
     result = await alert_service.acknowledge_alert(alert_id)
     if not result:
@@ -76,7 +76,7 @@ async def post_acknowledge_alert(alert_id: str) -> dict[str, Any]:
     return {"status": "acknowledged"}
 
 
-@router.get("/alerts/config")
+@router.get("/alerts/config", operation_id="getAlertConfig")
 async def get_alert_config(
     project_id: str = Query(...),
 ) -> list[AlertConfigResponse]:
@@ -98,7 +98,7 @@ async def get_alert_config(
     ]
 
 
-@router.patch("/alerts/config")
+@router.patch("/alerts/config", operation_id="updateAlertConfig")
 async def update_alert_config(
     body: UpdateAlertConfigRequest,
     project_id: str = Query(...),

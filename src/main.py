@@ -100,6 +100,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="GeoStorm",
     description="Observability for AI-driven software discovery",
+    version="0.1.0",
     lifespan=lifespan,
 )
 
@@ -144,7 +145,7 @@ def _get_version() -> str:
         return "dev"
 
 
-@app.get("/api/version")
+@app.get("/api/version", tags=["Meta"], operation_id="getVersion")
 async def get_version() -> VersionResponse:
     """Return the application version and build time."""
     settings = get_settings()
@@ -154,7 +155,7 @@ async def get_version() -> VersionResponse:
     )
 
 
-@app.get("/health")
+@app.get("/health", tags=["Meta"], operation_id="healthCheck")
 async def health_check() -> HealthResponse:
     """Return service health status with a real database ping."""
     db_ok = await check_database_health()
@@ -171,18 +172,18 @@ _ASTRO_ASSETS = _STATIC_DIR / "_astro"
 if _ASTRO_ASSETS.is_dir():
     app.mount("/_astro", StaticFiles(directory=str(_ASTRO_ASSETS)), name="astro_assets")
 if (_STATIC_DIR / "favicon.svg").is_file():
-    @app.get("/favicon.svg", response_model=None)
+    @app.get("/favicon.svg", response_model=None, include_in_schema=False)
     async def favicon_svg() -> FileResponse:
         """Serve favicon."""
         return FileResponse(str(_STATIC_DIR / "favicon.svg"))
 
-    @app.get("/favicon.ico", response_model=None)
+    @app.get("/favicon.ico", response_model=None, include_in_schema=False)
     async def favicon_ico() -> FileResponse:
         """Serve favicon."""
         return FileResponse(str(_STATIC_DIR / "favicon.ico"))
 
 
-@app.get("/{_full_path:path}", response_model=None)
+@app.get("/{_full_path:path}", response_model=None, include_in_schema=False)
 async def serve_spa(_full_path: str) -> FileResponse | JSONResponse:
     """Serve static Astro pages.
 

@@ -11,10 +11,10 @@ from src.container import schedule_service
 from src.routes.deps import get_project_or_404, get_writable_project_or_403
 from src.schemas import ScheduleResponse, UpdateScheduleRequest
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", tags=["Schedules"])
 
 
-@router.get("/projects/{project_id}/schedule")
+@router.get("/projects/{project_id}/schedule", operation_id="getSchedule")
 async def get_schedule(project_id: str) -> ScheduleResponse:
     await get_project_or_404(project_id)
     result = await schedule_service.get_schedule(project_id)
@@ -23,7 +23,7 @@ async def get_schedule(project_id: str) -> ScheduleResponse:
     return ScheduleResponse(**result)
 
 
-@router.patch("/projects/{project_id}/schedule")
+@router.patch("/projects/{project_id}/schedule", operation_id="updateSchedule")
 async def update_schedule(
     project_id: str, body: UpdateScheduleRequest,
 ) -> ScheduleResponse:

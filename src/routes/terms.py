@@ -11,10 +11,10 @@ from src.container import term_service
 from src.routes.deps import get_project_or_404, get_writable_project_or_403
 from src.schemas import CreateTermRequest, TermResponse
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", tags=["Terms"])
 
 
-@router.get("/projects/{project_id}/terms")
+@router.get("/projects/{project_id}/terms", operation_id="listTerms")
 async def get_terms(project_id: str) -> list[TermResponse]:
     await get_project_or_404(project_id)
     rows = await term_service.list_terms(project_id)
@@ -32,7 +32,7 @@ async def get_terms(project_id: str) -> list[TermResponse]:
     ]
 
 
-@router.post("/projects/{project_id}/terms", status_code=201)
+@router.post("/projects/{project_id}/terms", status_code=201, operation_id="createTerm")
 async def create_term(project_id: str, body: CreateTermRequest) -> TermResponse:
     await get_writable_project_or_403(project_id)
     term_id = uuid.uuid4().hex
@@ -49,7 +49,7 @@ async def create_term(project_id: str, body: CreateTermRequest) -> TermResponse:
     )
 
 
-@router.delete("/projects/{project_id}/terms/{term_id}")
+@router.delete("/projects/{project_id}/terms/{term_id}", operation_id="deleteTerm")
 async def delete_term(project_id: str, term_id: str) -> Response:
     await get_writable_project_or_403(project_id)
     rowcount = await term_service.delete_term(term_id, project_id)

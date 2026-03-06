@@ -34,7 +34,7 @@ router = APIRouter(prefix="/api")
 # ---------------------------------------------------------------------------
 
 
-@router.get("/projects/{project_id}/runs")
+@router.get("/projects/{project_id}/runs", operation_id="listRuns", tags=["Runs"])
 async def list_runs(
     project_id: str,
     limit: int = Query(default=50, ge=1, le=200),
@@ -51,7 +51,7 @@ async def list_runs(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/runs/{run_id}")
+@router.get("/runs/{run_id}", operation_id="getRun", tags=["Runs"])
 async def get_run(run_id: str) -> RunDetailResponse:
     """Run detail with aggregate perception score and competitors detected."""
     result = await run_service.get_run_detail(run_id)
@@ -68,7 +68,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-@router.get("/runs/{run_id}/progress")
+@router.get("/runs/{run_id}/progress", operation_id="streamRunProgress", tags=["Runs"])
 async def stream_run_progress(run_id: str) -> StreamingResponse:
     """Server-Sent Events stream for real-time run progress."""
     run = await run_service.get_run_status(run_id)
@@ -131,7 +131,7 @@ async def stream_run_progress(run_id: str) -> StreamingResponse:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/runs/{run_id}/responses")
+@router.get("/runs/{run_id}/responses", operation_id="listRunResponses", tags=["Runs"])
 async def list_responses(
     run_id: str,
     limit: int = Query(default=50, ge=1, le=200),
@@ -149,7 +149,7 @@ async def list_responses(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/projects/{project_id}/perception")
+@router.get("/projects/{project_id}/perception", operation_id="getPerception", tags=["Perception"])
 async def get_perception(
     project_id: str,
     start_date: str | None = Query(default=None),
@@ -165,7 +165,7 @@ async def get_perception(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/projects/{project_id}/trajectory")
+@router.get("/projects/{project_id}/trajectory", operation_id="getTrajectory", tags=["Perception"])
 async def get_trajectory(
     project_id: str,
     start_date: str | None = Query(default=None),
@@ -182,7 +182,7 @@ async def get_trajectory(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/projects/{project_id}/perception/breakdown")
+@router.get("/projects/{project_id}/perception/breakdown", operation_id="getPerceptionBreakdown", tags=["Perception"])
 async def get_perception_breakdown(project_id: str) -> PerceptionBreakdownResponse:
     """Per-term and per-provider perception breakdown from the latest scoring period."""
     await get_project_or_404(project_id)
